@@ -24,6 +24,15 @@ You can install them using the _requirements.txt_ file in the following way:
 Usage
 -----
 
-1. Run the web server.
+Before running the web application for the first time, follow these steps:
+
+1. Customize _config.ini_ if needed.
+
+1. Create the database and populate it with the available ports. Generally you should __only do this once__.
    
-    ```cd src/ptinstancemanager; python run.py```
+    ```cd src/ptinstancemanager; python run.py -createdb```
+
+
+Then, simply __run the web server__:
+
+    cd src/ptinstancemanager; python run.py
