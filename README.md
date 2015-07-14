@@ -26,4 +26,4 @@ Usage
 
 1. Run the web server.
    
-    ```python webapp.py```
+    ```cd src/ptinstancemanager; python run.py```
