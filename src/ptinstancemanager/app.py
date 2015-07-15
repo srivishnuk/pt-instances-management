@@ -11,7 +11,7 @@ from ptinstancemanager.config import configuration
 
 app = Flask(__name__)
 app.debug = True
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tmp/test.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = configuration.get_database_uri()
 app.config['LOWEST_PORT'] = int(configuration.get_lowest_port())
 app.config['HIGHEST_PORT'] = int(configuration.get_highest_port())
 

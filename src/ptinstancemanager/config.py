@@ -14,6 +14,9 @@ class ConfigFileReader(object):
         self.config = ConfigParser.RawConfigParser()
         self.config.read(file_path)
 
+    def get_database_uri(self):
+        return self.config.get('Database', 'uri')
+
     def get_lowest_port(self):
         return self.config.get('Port', 'lowest')
 
