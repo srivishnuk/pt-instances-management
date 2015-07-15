@@ -28,7 +28,7 @@ setup(name="ptinstancemanager",
       install_requires=["Flask-SQLAlchemy"],
       entry_points={
           'console_scripts': [
-              'run-basestation = ptinstancemanager.run:main',
+              'run-api = ptinstancemanager.run:main',
           ],
       },
 )
