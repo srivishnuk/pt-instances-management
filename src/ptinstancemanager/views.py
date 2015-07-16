@@ -4,6 +4,7 @@ Created on 13/07/2015
 @author: Aitor Gomez Goiri <aitor.gomez-goiri@open.ac.uk>
 """
 
+from subprocess import call
 from flask import redirect, request, render_template, url_for, jsonify
 from werkzeug.exceptions import BadRequest
 from ptinstancemanager.app import app
@@ -52,7 +53,9 @@ def create_instance():
     # return "%r" % request.get_json()
     available_port = Port.allocate()
     
-    # TODO create container with Docker
+    # Create container with Docker
+    command = ["docker", "run", "-p", (available_port.number+10000)+":5900", "-t", "-i", "bla"]
+    call(command)
     # if success
     instance = Instance.create(available_port.number)
     available_port.assign(instance.id)
