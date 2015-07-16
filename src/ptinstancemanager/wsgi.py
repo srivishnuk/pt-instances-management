@@ -5,7 +5,8 @@ Created on 16/07/2015
 
 from ptinstancemanager.config import configuration
 
+
 def main(config_file):
 	configuration.set_file_path(config_file)
-	from ptinstancemanager.run import load_app
+	from ptinstancemanager.main import load_app
 	return load_app()
