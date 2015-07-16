@@ -11,14 +11,15 @@ from argparse import ArgumentParser
 from ptinstancemanager.config import configuration
 
 
-def main(config_file):
+def main(config_file, create_database):
 	configuration.set_file_path(config_file)
 	from ptinstancemanager.main import load_app, load_db
 	app = load_app()
 
-	if args.create_db:
+	if create_database:
 		db = load_db()
 		db.create_all() # By default it doesn't create already created tables
+		from ptinstancemanager.models import init_database
 		init_database(db, app.config['LOWEST_PORT'], app.config['HIGHEST_PORT'])
 	else:
 		# We don't run the app in the database creation mode.
@@ -26,7 +27,7 @@ def main(config_file):
 		app.run(host='0.0.0.0', debug=True)
 
 
-if __name__ == "__main__":
+def entry_point():
 	parser = ArgumentParser(description='Run sample web server which uses ptinstancemanager.')
 	parser.add_argument('-createdb', action='store_true', dest='create_db',
 	                    help='Do you want to create the database? (needed at least the first time)')
@@ -35,4 +36,9 @@ if __name__ == "__main__":
 	args = parser.parse_args()
 
 	# Builtin server for development.
-	main(args.config)
+	main(args.config, args.create_db)
+
+
+
+if __name__ == "__main__":
+	entry_point()
