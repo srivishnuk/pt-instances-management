@@ -14,6 +14,10 @@ class ConfigFileReader(object):
         self.config = ConfigParser.RawConfigParser()
         self.config.read(file_path)
 
+    def set_file_path(self, file_path):
+        self.config = ConfigParser.RawConfigParser()
+        self.config.read(file_path)
+
     def get_database_uri(self):
         return self.config.get('Database', 'uri')
 
