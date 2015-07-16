@@ -54,7 +54,7 @@ def create_instance():
     available_port = Port.allocate()
     
     # Create container with Docker
-    command = ["docker", "run", "-p", (available_port.number+10000)+":5900", "-t", "-i", "bla"]
+    command = ["docker", "run", "-p", "%d:5900"%(available_port.number+10000), "-t", "-i", "bla"]
     call(command)
     # if success
     instance = Instance.create(available_port.number)
