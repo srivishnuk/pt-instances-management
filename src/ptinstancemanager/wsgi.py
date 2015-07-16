@@ -7,5 +7,5 @@ from ptinstancemanager.config import configuration
 
 def main(config_file):
 	configuration.set_file_path(config_file)
-	from ptinstancemanager.run import main
-	main(True)
+	from ptinstancemanager.run import load_app
+	return load_app()
