@@ -76,9 +76,12 @@ def show_instance_details(instance_id):
 
 @app.route("/instances/<instance_id>", methods=['DELETE'])
 def stop_instance(instance_id):
-    instance = Instance.stop(instance_id)
+    instance = Instance.get(instance_id)
     if instance is None:
         return not_found(error="The instance does not exist.")
+    command = "docker stop %s" % instance.docker_id
+    output = check_output(command.split()).strip()  # TODO log the answer!
+    instance.stop()
     Port.get(instance.pt_port).release()  # The port can be now reused by a new PT instance
     return jsonify(instance.serialize)  
 

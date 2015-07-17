@@ -32,9 +32,9 @@ class Instance(db.Model):
     def is_active(self):
         return self.deleted_at is None # check if deletion time is set
 
-    def delete(self):
-        # set deletion time
-	   self.deleted_at = datetime.now()
+    def stop(self):
+        self.deleted_at = datetime.now()  # set deletion time
+        db.session.commit()
 
     def get_id(self):
         return self.id
@@ -56,14 +56,6 @@ class Instance(db.Model):
         instance = Instance(docker_id, pt_port, vnc_port)
         db.session.add(instance)
         db.session.commit()
-        return instance
-
-    @staticmethod
-    def stop(instance_id):
-        instance = Instance.get(instance_id)
-        if instance is not None:
-            instance.delete()
-            db.session.commit()
         return instance
 
     @staticmethod
