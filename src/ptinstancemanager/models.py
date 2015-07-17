@@ -12,13 +12,16 @@ from ptinstancemanager.app import db
 class Instance(db.Model):
     __tablename__ = 'instance'
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    docker_id = db.Column(db.String)
     pt_port = db.Column(db.Integer)
     vnc_port = db.Column(db.Integer)
     created_at = db.Column(db.DateTime, default=datetime.now)
     deleted_at = db.Column(db.DateTime)
 
-    def __init__(self, pt_port):
+    def __init__(self, docker_id, pt_port, vnc_port):
+        self.docker_id = docker_id
         self.pt_port = pt_port
+        self.vnc_port = vnc_port
 
     def __repr__(self):
         return '<Instance %r>' % self.id
@@ -41,6 +44,7 @@ class Instance(db.Model):
        """Return object data in easily serializeable format"""
        return {
             'id': self.id,
+            'docker_id': self.docker_id,
             'port': self.pt_port,
             'vnc': self.vnc_port,
             'created_at': self.created_at.isoformat(),
@@ -48,8 +52,8 @@ class Instance(db.Model):
        }
 
     @staticmethod
-    def create(pt_port=None):
-        instance = Instance(pt_port)
+    def create(docker_id=None, pt_port=None, vnc_port=None):
+        instance = Instance(docker_id, pt_port, vnc_port)
         db.session.add(instance)
         db.session.commit()
         return instance
