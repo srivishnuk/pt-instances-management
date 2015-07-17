@@ -46,7 +46,7 @@ class Instance(db.Model):
             'id': self.id,
             'docker_id': self.docker_id,
             'port': self.pt_port,
-            'vnc': self.vnc_port,
+            'vnc': "vnc://machine:%d" % (self.vnc_port),
             'created_at': self.created_at.isoformat(),
             'removed_at': self.deleted_at.isoformat() if self.deleted_at else None
        }
