@@ -4,7 +4,7 @@ Created on 13/07/2015
 @author: Aitor Gomez Goiri <aitor.gomez-goiri@open.ac.uk>
 """
 
-from subprocess import call
+from subprocess import check_output
 from flask import redirect, request, render_template, url_for, jsonify
 from werkzeug.exceptions import BadRequest
 from ptinstancemanager.app import app
