@@ -56,7 +56,7 @@ def create_instance():
     # Create container with Docker
     vnc_port = available_port.number + 10000
     command = "docker run -d -p %d:39000 -p %d:5900 -t -i bla" % (available_port.number, vnc_port)
-    container_id = check_output(command.split())
+    container_id = check_output(command.split()).strip()
     # If success...
     instance = Instance.create(container_id, available_port.number, vnc_port)
     available_port.assign(instance.id)
