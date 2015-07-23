@@ -132,8 +132,9 @@ class Port(db.Model):
     @staticmethod
     def allocate():
         allocated_port = Port.get_available().first()
-        allocated_port.__set_used_by(Port.ALLOCATED)
-        db.session.commit()
+        if allocated_port is not None:
+            allocated_port.__set_used_by(Port.ALLOCATED)
+            db.session.commit()
         return allocated_port
 
 

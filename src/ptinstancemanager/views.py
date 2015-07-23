@@ -27,6 +27,17 @@ def not_found(error=None):
     return resp
 
 
+@app.errorhandler(503)
+def unavailable(error=None):
+    message = {
+        'status': 503,
+        'message': 'Service Unavailable: %s.' % error,
+    }
+    resp = jsonify(message)
+    resp.status_code = 503
+    return resp
+
+
 @app.route("/details")
 def get_configuration_details():
     return jsonify( lowest_port=app.config['LOWEST_PORT'],
@@ -61,6 +72,9 @@ def list_instances():
 def create_instance():
     # return "%r" % request.get_json()
     available_port = Port.allocate()
+
+    if available_port is None:
+        return unavailable(error="The server cannot create new instances. Please, wait and retry it.")
     
     # Create container with Docker
     vnc_port = available_port.number + 10000
