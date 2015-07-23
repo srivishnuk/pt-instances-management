@@ -39,16 +39,16 @@ class Instance(db.Model):
     def get_id(self):
         return self.id
 
-    @property
-    def serialize(self):
+    def serialize(self, url, local_machine):
        """Return object data in easily serializeable format"""
        return {
             'id': self.id,
-            'docker_id': self.docker_id,
-            'port': self.pt_port,
-            'vnc': "vnc://machine:%d" % (self.vnc_port),
-            'created_at': self.created_at.isoformat(),
-            'removed_at': self.deleted_at.isoformat() if self.deleted_at else None
+            'url': url,
+            'dockerId': self.docker_id,
+            'packetTracer': "%s:%d" % (local_machine, self.pt_port),
+            'vnc': "vnc://%s:%d" % (local_machine, self.vnc_port),
+            'createdAt': self.created_at.isoformat(),
+            'removedAt': self.deleted_at.isoformat() if self.deleted_at else None
        }
 
     @staticmethod
