@@ -41,4 +41,4 @@ Then, simply __run the web server__:
 Acknowledgements
 ----------------
 
-This playbook was made as part of the [FORGE project](http://ict-forge.eu/).
+This API is being developed as part of the [FORGE project](http://ict-forge.eu/).
