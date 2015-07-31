@@ -38,6 +38,7 @@ Then, simply __run the web server__:
     cd src/ptinstancemanager; python run.py
 
 
-# Acknowledgements
+Acknowledgements
+----------------
 
 This playbook was made as part of the [FORGE project](http://ict-forge.eu/).
