@@ -8,7 +8,7 @@ Installation
 
 Why would you want to install it?
 
-    pip install git+https://github.com/lightsec/http_bs_lightsec.git
+    pip install git+https://github.com/PTAnywhere/pt-instances-management.git
 
 
 Requirements
