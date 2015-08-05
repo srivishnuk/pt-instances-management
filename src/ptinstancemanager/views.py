@@ -119,10 +119,12 @@ def create_instance_v1():
           id: Instance
           properties:
             createdAt:
-                type: dateTime
+                type: string
+                format: date-time
                 description: When was the instance created?
             removedAt:
-                type: dateTime
+                type: string
+                format: date-time
                 description: When was the instance removed/stopped?
             id:
                 type: integer
