@@ -14,7 +14,7 @@ from ptinstancemanager.models import Instance, Port
 
 @app.route("/")
 def index():
-    return "Hello World!"
+    return redirect("/apidocs/index.html")
 
 
 @app.errorhandler(404)
@@ -39,8 +39,26 @@ def unavailable(error=None):
     return resp
 
 
-@app.route("/details")
+@app.route("/details", endpoint="v1_details")
 def get_configuration_details():
+    """
+    Get details of the API capability.
+    ---
+    tags:
+      - details
+    responses:
+      200:
+        description: A single user item
+        schema:
+          id: Details
+          properties:
+            lowest_port:
+                type: integer
+                description: minimum port for newly created instances
+            highest_port:
+                type: integer
+                description: maximum port for newly created instances
+    """
     return jsonify( lowest_port=app.config['LOWEST_PORT'],
                     highest_port=app.config['HIGHEST_PORT'] )
 
@@ -49,8 +67,28 @@ def get_host():
     return urlparse(request.base_url).hostname
 
 
-@app.route("/instances")
-def list_instances():
+@app.route("/instances", endpoint="v1_instances")
+def list_instances_v1():
+    """
+    Lists instances.
+    ---
+    tags:
+      - instance
+    parameters:
+      - name: show
+        in: query
+        type: string
+        description: Show different types of instances
+        default: running
+        enum: [all, running, finished]
+    responses:
+      200:
+        description: Packet Tracer instances
+        instances:
+            type: array
+            items:
+              $ref: '#/definitions/Instance'
+    """
     show_param = request.args.get("show")
     h = get_host()
     if show_param is None or show_param == "running":  # default option
@@ -65,14 +103,47 @@ def list_instances():
             return jsonify(instances=[ins.serialize("%s/%d" % (request.base_url, ins.id), h) for ins in Instance.get_finished()])
 
 
-@app.route("/instances", methods=['POST'])
-def create_instance():
+@app.route("/instances", methods=['POST'], endpoint="v1_instance_create")
+def create_instance_v1():
+    """
+    Creates a new Packet Tracer instance.
+    ---
+    tags:
+      - instance
+    responses:
+      201:
+        description: Packet Tracer instance created
+        schema:
+          id: Instance
+          properties:
+            createdAt:
+                type: dateTime
+                description: When was the instance created?
+            removedAt:
+                type: dateTime
+                description: When was the instance removed/stopped?
+            id:
+                type: integer
+                description: Identifier of the instance
+            dockerId:
+                type: string
+                description: Identifier of the docker container which serves the instance
+            url:
+                type: string
+                description: URL to handle the instance
+            packetTracer:
+                type: string
+                description: Host and port where the Packet Tracer instance can be contacted (through IPC)
+            vnc:
+                type: string
+                description: VNC URL to access the Packet Tracer instance
+    """
     # return "%r" % request.get_json()
     available_port = Port.allocate()
 
     if available_port is None:
         return unavailable(error="The server cannot create new instances. Please, wait and retry it.")
-    
+
     # Create container with Docker
     vnc_port = available_port.number + 10000
     command = "docker run -d -p %d:39000 -p %d:5900 -t -i bla" % (available_port.number, vnc_port)
@@ -86,16 +157,38 @@ def create_instance():
     return jsonify(instance.serialize("%s/%d" % (request.base_url, instance.id), get_host()))
 
 
-@app.route("/instances/<instance_id>")
-def show_instance_details(instance_id):
+@app.route("/instances/<instance_id>", endpoint="v1_instance")
+def show_instance_details_v1(instance_id):
+    """
+    Shows the details of a Packet Tracer instance.
+    ---
+    tags:
+      - instance
+    responses:
+      200:
+        description: Details of the instance
+        schema:
+            $ref: '#/definitions/Instance'
+    """
     instance = Instance.get(instance_id)
     if instance is None:
         return not_found(error="The instance does not exist.")
     return jsonify(instance.serialize(request.base_url, get_host()))
 
 
-@app.route("/instances/<instance_id>", methods=['DELETE'])
-def stop_instance(instance_id):
+@app.route("/instances/<instance_id>", methods=['DELETE'], endpoint="v1_instance_delete")
+def stop_instance_v1(instance_id):
+    """
+    Stops a running Packet Tracer instance.
+    ---
+    tags:
+      - instance
+    responses:
+      200:
+          description: Instance stopped
+          schema:
+              $ref: '#/definitions/Instance'
+    """
     instance = Instance.get(instance_id)
     if instance is None:
         return not_found(error="The instance does not exist.")
@@ -106,8 +199,36 @@ def stop_instance(instance_id):
     return jsonify(instance.serialize(request.base_url, get_host()))
 
 
-@app.route("/ports")
-def list_ports():
+@app.route("/ports", endpoint="v1_ports")
+def list_ports_v1():
+    """
+    Lists the ports used by the running Packet Tracer instances.
+    ---
+    tags:
+      - port
+    parameters:
+      - name: show
+        in: query
+        type: string
+        description: Filter ports by their current status
+        default: all
+        enum: [all, available, unavailable]
+    responses:
+      201:
+        description: Ports
+        ports:
+            type: array
+            items:
+                schema:
+                  id: Port
+                  properties:
+                    number:
+                        type: integer
+                        description: Number of port
+                    used_by:
+                        type: integer
+                        description: Identifier of the instance currently using it or -1 if the port is available.
+    """
     show_param = request.args.get("show")
     if show_param is None or show_param == "all":
         return jsonify(ports=[port.serialize for port in Port.get_all()])
