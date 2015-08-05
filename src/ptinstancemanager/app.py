@@ -22,7 +22,6 @@ app.config['SWAGGER'] = {
             "title": "API v1",
             "endpoint": 'v1_spec',
             "route": '/spec',
-            "baseurl": '/',
             "rule_filter": lambda rule: rule.endpoint.startswith('v1'),
     }],
 }
