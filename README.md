@@ -1,6 +1,7 @@
 # Packet Tracer instance management
 
-Web application which handles local PacketTracer instances using Docker (see [this project](https://github.com/gomezgoiri/pt-installation) for more info).
+Web application which handles local PacketTracer instances using Docker.
+
 
 Installation
 ------------
@@ -37,6 +38,12 @@ Then, simply __run the web server__:
 
     cd src/ptinstancemanager; python run.py
 
+The API will be then available in the (port 5000)[http://localhost:5000].
+If you go to the root of the application, you will be automatically redirected to a [user friendly description](http://swagger.io) of the API.
+
+Advanced usage
+--------------
+For a production ready installation using which uses Nginx, Gunicorn and Supervisor, check [this project](https://github.com/PTAnywhere/ptAnywhere-installation).
 
 Acknowledgements
 ----------------
