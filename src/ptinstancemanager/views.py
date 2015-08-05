@@ -42,7 +42,7 @@ def unavailable(error=None):
 @app.route("/details", endpoint="v1_details")
 def get_configuration_details():
     """
-    Get details of the API capability.
+    Get API capabilities.
     ---
     tags:
       - details
@@ -84,10 +84,12 @@ def list_instances_v1():
     responses:
       200:
         description: Packet Tracer instances
-        instances:
-            type: array
-            items:
-              $ref: '#/definitions/Instance'
+        schema:
+            properties:
+                instances:
+                    type: array
+                    items:
+                      $ref: '#/definitions/Instance'
     """
     show_param = request.args.get("show")
     h = get_host()
@@ -202,7 +204,7 @@ def stop_instance_v1(instance_id):
 @app.route("/ports", endpoint="v1_ports")
 def list_ports_v1():
     """
-    Lists the ports used by the running Packet Tracer instances.
+    Lists the ports used by the Packet Tracer instances.
     ---
     tags:
       - port
@@ -214,20 +216,21 @@ def list_ports_v1():
         default: all
         enum: [all, available, unavailable]
     responses:
-      201:
+      200:
         description: Ports
-        ports:
-            type: array
-            items:
-                schema:
-                  id: Port
-                  properties:
-                    number:
-                        type: integer
-                        description: Number of port
-                    used_by:
-                        type: integer
-                        description: Identifier of the instance currently using it or -1 if the port is available.
+        schema:
+            properties:
+                ports:
+                    type: array
+                    items:
+                      id: Port
+                      properties:
+                        number:
+                            type: integer
+                            description: Number of port
+                        used_by:
+                            type: integer
+                            description: Identifier of the instance currently using it or -1 if the port is available.
     """
     show_param = request.args.get("show")
     if show_param is None or show_param == "all":
