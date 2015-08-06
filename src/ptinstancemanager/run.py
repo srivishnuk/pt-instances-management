@@ -11,7 +11,7 @@ from argparse import ArgumentParser
 from ptinstancemanager.config import configuration
 
 
-def main(config_file, create_database):
+def main(config_file, create_database, port_number):
 	configuration.set_file_path(config_file)
 	from ptinstancemanager.main import load_app, load_db
 	app = load_app()
@@ -24,7 +24,7 @@ def main(config_file, create_database):
 	else:
 		# We don't run the app in the database creation mode.
 		# Otherwise on flask's automatic restarts it will try to create the database and data again!
-		app.run(host='0.0.0.0', debug=True)
+		app.run(host='0.0.0.0', port=port_number, debug=True)
 
 
 def entry_point():
@@ -33,10 +33,12 @@ def entry_point():
 	                    help='Do you want to create the database? (needed at least the first time)')
 	parser.add_argument('-config', default='../../config.ini', dest='config',
 	                    help='Configuration file.')
+	parser.add_argument('-port', type=int, default=5000, dest='port',
+	                    help='Port were the server will listen.')
 	args = parser.parse_args()
 
 	# Builtin server for development.
-	main(args.config, args.create_db)
+	main(args.config, args.create_db, args.port)
 
 
 
