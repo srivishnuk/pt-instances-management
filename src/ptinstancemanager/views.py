@@ -168,6 +168,12 @@ def show_instance_details_v1(instance_id):
     ---
     tags:
       - instance
+    parameters:
+      - name: instance_id
+        in: path
+        description: instance identifier
+        required: true
+        type: integer
     responses:
       200:
         description: Details of the instance
@@ -187,6 +193,12 @@ def stop_instance_v1(instance_id):
     ---
     tags:
       - instance
+    parameters:
+      - name: instance_id
+        in: path
+        description: instance identifier
+        required: true
+        type: integer
     responses:
       200:
           description: Instance stopped
