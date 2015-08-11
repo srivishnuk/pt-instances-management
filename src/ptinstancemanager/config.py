@@ -24,6 +24,9 @@ class ConfigFileReader(object):
     def get_highest_port(self):
         return self.config.get('Port', 'highest')
 
+    def get_docker_image_name(self):
+        return self.config.get('Docker', 'image_name')
+
 
 
 configuration = ConfigFileReader()
