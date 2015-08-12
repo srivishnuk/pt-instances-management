@@ -15,17 +15,23 @@ class ConfigFileReader(object):
     def set_file_path(self, file_path):
         self.config.read(file_path)
 
+    def get_docker_image_name(self):
+        return self.config.get('Docker', 'image_name')
+
+    def get_docker_vnc_port(self):
+        return int(self.config.get('Docker', 'vnc_port'))
+
+    def get_docker_pt_port(self):
+        return int(self.config.get('Docker', 'pt_port'))
+
     def get_database_uri(self):
         return self.config.get('Database', 'uri')
 
     def get_lowest_port(self):
-        return self.config.get('Port', 'lowest')
+        return int(self.config.get('Port', 'lowest'))
 
     def get_highest_port(self):
-        return self.config.get('Port', 'highest')
-
-    def get_docker_image_name(self):
-        return self.config.get('Docker', 'image_name')
+        return int(self.config.get('Port', 'highest'))
 
 
 

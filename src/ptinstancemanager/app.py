@@ -12,9 +12,11 @@ from ptinstancemanager.config import configuration
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = configuration.get_database_uri()
-app.config['LOWEST_PORT'] = int(configuration.get_lowest_port())
-app.config['HIGHEST_PORT'] = int(configuration.get_highest_port())
+app.config['LOWEST_PORT'] = configuration.get_lowest_port()
+app.config['HIGHEST_PORT'] = configuration.get_highest_port()
 app.config['DOCKER_IMAGE'] = configuration.get_docker_image_name()
+app.config['DOCKER_VNC_PORT'] =  configuration.get_docker_vnc_port()
+app.config['DOCKER_PT_PORT'] =  configuration.get_docker_pt_port()
 app.config['SWAGGER'] = {
     "swagger_version": "2.0",
     "title": "pt-instances-management",
