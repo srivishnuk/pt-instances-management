@@ -38,7 +38,7 @@ Then, simply __run the web server__:
 
     cd src/ptinstancemanager; python run.py
 
-The API will be then available in the (port 5000)[http://localhost:5000].
+The API will be then available in the [port 5000](http://localhost:5000).
 If you go to the root of the application, you will be automatically redirected to a [user friendly description](http://swagger.io) of the API.
 
 Advanced usage
