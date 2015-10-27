@@ -16,7 +16,7 @@ from ptinstancemanager.models import Instance, Port
 def index():
     return redirect("/apidocs/index.html")
 
-def get_json_error(error_number, message)
+def get_json_error(error_number, message):
     resp = jsonify({ 'status': error_number, 'message': message })
     resp.status_code = error_number
     return resp
