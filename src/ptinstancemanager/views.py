@@ -5,8 +5,8 @@ Created on 13/07/2015
 """
 
 from urlparse import urlparse
-from subprocess import check_output
 from flask import redirect, request, render_template, url_for, jsonify
+from docker import Client
 from werkzeug.exceptions import BadRequest
 from ptinstancemanager.app import app
 from ptinstancemanager.models import Instance, Port
@@ -16,27 +16,22 @@ from ptinstancemanager.models import Instance, Port
 def index():
     return redirect("/apidocs/index.html")
 
+def get_json_error(error_number, message)
+    resp = jsonify({ 'status': error_number, 'message': message })
+    resp.status_code = error_number
+    return resp
 
 @app.errorhandler(404)
 def not_found(error=None):
-    message = {
-        'status': 404,
-        'message': 'Not Found: %s.\n%s' % (request.url, error),
-    }
-    resp = jsonify(message)
-    resp.status_code = 404
-    return resp
-
+    return get_json_error(404, 'Not Found: %s.\n%s' % (request.url, error))
 
 @app.errorhandler(503)
 def unavailable(error=None):
-    message = {
-        'status': 503,
-        'message': 'Service Unavailable: %s' % error,
-    }
-    resp = jsonify(message)
-    resp.status_code = 503
-    return resp
+    return get_json_error(503, 'Service Unavailable: %s' % error)
+
+@app.errorhandler(500)
+def internal_error(error=None):
+    return get_json_error(500, 'Internal Server Error: %s' % error)
 
 
 @app.route("/details", endpoint="v1_details")
@@ -150,12 +145,23 @@ def create_instance_v1():
 
     # Create container with Docker
     vnc_port = available_port.number + 10000
-    command = "docker run -d -p %d:%d -p %d:%d -t -i %s" % ( \
-                    available_port.number, app.config['DOCKER_PT_PORT'], \
-                    vnc_port, app.config['DOCKER_VNC_PORT'], app.config['DOCKER_IMAGE'] )
-    container_id = check_output(command.split()).strip()
+    docker = Client(app.config['DOCKER_URL'])
+    port_bindings = { app.config['DOCKER_PT_PORT']: available_port.number,
+                      app.config['DOCKER_VNC_PORT']: vnc_port }
+    vol_bindings = {}  #{'/opt/pt': {'bind': '/opt/pt', 'mode': 'ro'}}
+    host_config = docker.create_host_config(
+                        port_bindings=port_bindings,
+                        binds=vol_bindings)
+    container = docker.create_container(image=app.config['DOCKER_IMAGE'],
+                                        ports=list(port_bindings.keys()),
+                                        volumes=[vol_bindings[k]['bind'] for k in vol_bindings],
+                                        host_config=host_config)
+    if container.get('Warnings'):
+        return internal_error('Error during container creation: %s' % container.get('Warnings'))
+
     # If success...
-    instance = Instance.create(container_id, available_port.number, vnc_port)
+    response = docker.start(container=container.get('Id'))  # TODO log response?
+    instance = Instance.create(container.get('Id'), available_port.number, vnc_port)
     available_port.assign(instance.id)
 
     # If sth went wrong: available_port.release()
@@ -210,8 +216,8 @@ def stop_instance_v1(instance_id):
     instance = Instance.get(instance_id)
     if instance is None:
         return not_found(error="The instance does not exist.")
-    command = "docker stop %s" % instance.docker_id
-    output = check_output(command.split()).strip()  # TODO log the answer!
+    docker = Client(app.config['DOCKER_URL'])
+    docker.stop(instance.docker_id)
     instance.stop()
     Port.get(instance.pt_port).release()  # The port can be now reused by a new PT instance
     return jsonify(instance.serialize(request.base_url, get_host()))

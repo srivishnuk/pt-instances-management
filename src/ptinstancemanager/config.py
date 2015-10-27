@@ -15,6 +15,9 @@ class ConfigFileReader(object):
     def set_file_path(self, file_path):
         self.config.read(file_path)
 
+    def get_docker_url(self):
+        return self.config.get('Docker', 'url')
+
     def get_docker_image_name(self):
         return self.config.get('Docker', 'image_name')
 

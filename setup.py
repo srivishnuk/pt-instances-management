@@ -25,7 +25,7 @@ setup(name="ptinstancemanager",
           '': 'src',
       },
       packages=["ptinstancemanager"],
-      install_requires=["Flask-SQLAlchemy", "flasgger"],
+      install_requires=["docker-py", "Flask-SQLAlchemy", "flasgger"],
       entry_points={
           'console_scripts': [
               'run-api = ptinstancemanager.run:entry_point',
