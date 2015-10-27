@@ -145,7 +145,7 @@ def create_instance_v1():
 
     # Create container with Docker
     vnc_port = available_port.number + 10000
-    docker = Client(app.config['DOCKER_URL'])
+    docker = Client(app.config['DOCKER_URL'], version='auto')
     port_bindings = { app.config['DOCKER_PT_PORT']: available_port.number,
                       app.config['DOCKER_VNC_PORT']: vnc_port }
     vol_bindings = {}  #{'/opt/pt': {'bind': '/opt/pt', 'mode': 'ro'}}
@@ -216,7 +216,7 @@ def stop_instance_v1(instance_id):
     instance = Instance.get(instance_id)
     if instance is None:
         return not_found(error="The instance does not exist.")
-    docker = Client(app.config['DOCKER_URL'])
+    docker = Client(app.config['DOCKER_URL'], version='auto')
     docker.stop(instance.docker_id)
     instance.stop()
     Port.get(instance.pt_port).release()  # The port can be now reused by a new PT instance
