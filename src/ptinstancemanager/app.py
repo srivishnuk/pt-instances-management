@@ -16,6 +16,7 @@ app.config['LOWEST_PORT'] = configuration.get_lowest_port()
 app.config['HIGHEST_PORT'] = configuration.get_highest_port()
 app.config['DOCKER_URL'] =  configuration.get_docker_url()
 app.config['DOCKER_IMAGE'] = configuration.get_docker_image_name()
+app.config['DOCKER_DATA_ONLY'] = configuration.get_docker_data_container()
 app.config['DOCKER_VNC_PORT'] =  configuration.get_docker_vnc_port()
 app.config['DOCKER_PT_PORT'] =  configuration.get_docker_pt_port()
 app.config['SWAGGER'] = {

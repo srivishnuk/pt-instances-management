@@ -21,6 +21,9 @@ class ConfigFileReader(object):
     def get_docker_image_name(self):
         return self.config.get('Docker', 'image_name')
 
+    def get_docker_data_container(self):
+        return self.config.get('Docker', 'data_container')
+
     def get_docker_vnc_port(self):
         return int(self.config.get('Docker', 'vnc_port'))
 
