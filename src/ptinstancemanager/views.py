@@ -151,13 +151,12 @@ def create_instance_v1():
     host_config = docker.create_host_config(port_bindings=port_bindings)
     container = docker.create_container(image=app.config['DOCKER_IMAGE'],
                                         ports=list(port_bindings.keys()),
-                                        volumes_from=[app.config['DOCKER_DATA_ONLY']],
                                         host_config=host_config)
     if container.get('Warnings'):
         return internal_error('Error during container creation: %s' % container.get('Warnings'))
 
     # If success...
-    response = docker.start(container=container.get('Id'))  # TODO log response?
+    response = docker.start(container=container.get('Id'), volumes_from=[app.config['DOCKER_DATA_ONLY']])  # TODO log response?
     instance = Instance.create(container.get('Id'), available_port.number, vnc_port)
     available_port.assign(instance.id)
 
