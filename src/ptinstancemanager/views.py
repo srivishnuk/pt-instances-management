@@ -172,11 +172,15 @@ def create_instance_v1():
     docker = Client(app.config['DOCKER_URL'], version='auto')
     port_bindings = { app.config['DOCKER_PT_PORT']: available_port.number,
                       app.config['DOCKER_VNC_PORT']: vnc_port }
+    vol_bindings = { app.config['CACHE_DIR']:
+                    {'bind': app.config['CACHE_CONTAINER_DIR'], 'mode': 'ro'} }
     host_config = docker.create_host_config(
                                 port_bindings=port_bindings,
+                                binds=vol_bindings,
                                 volumes_from=(app.config['DOCKER_DATA_ONLY'],))
     container = docker.create_container(image=app.config['DOCKER_IMAGE'],
                                         ports=list(port_bindings.keys()),
+                                        volumes=[vol_bindings[k]['bind'] for k in vol_bindings],
                                         host_config=host_config)
     if container.get('Warnings'):
         return internal_error('Error during container creation: %s' % container.get('Warnings'))
