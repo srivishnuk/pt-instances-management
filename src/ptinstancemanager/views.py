@@ -4,12 +4,17 @@ Created on 13/07/2015
 @author: Aitor Gomez Goiri <aitor.gomez-goiri@open.ac.uk>
 """
 
+import os
+import errno
+import random
+import urllib
+import string
 from urlparse import urlparse
 from flask import redirect, request, render_template, url_for, jsonify
 from docker import Client
 from werkzeug.exceptions import BadRequest
 from ptinstancemanager.app import app
-from ptinstancemanager.models import Instance, Port
+from ptinstancemanager.models import Instance, Port, CachedFile
 
 
 @app.route("/")
@@ -22,16 +27,20 @@ def get_json_error(error_number, message):
     return resp
 
 @app.errorhandler(404)
+def bad_request(error=None):
+    return get_json_error(400, 'Bad Request: %s.\n%s' % (request.url, error))
+
+@app.errorhandler(404)
 def not_found(error=None):
     return get_json_error(404, 'Not Found: %s.\n%s' % (request.url, error))
-
-@app.errorhandler(503)
-def unavailable(error=None):
-    return get_json_error(503, 'Service Unavailable: %s' % error)
 
 @app.errorhandler(500)
 def internal_error(error=None):
     return get_json_error(500, 'Internal Server Error: %s' % error)
+
+@app.errorhandler(503)
+def unavailable(error=None):
+    return get_json_error(503, 'Service Unavailable: %s' % error)
 
 
 @app.route("/details", endpoint="v1_details")
@@ -136,6 +145,21 @@ def create_instance_v1():
             vnc:
                 type: string
                 description: VNC URL to access the Packet Tracer instance
+      500:
+        description: The container could not be created, there was an error.
+        schema:
+          id: Error
+          properties:
+            status:
+                type: integer
+                description: HTTP status code.
+            message:
+                type: string
+                description: Description for the error.
+      503:
+        description: At the moment the server cannot create more instances.
+        schema:
+            $ref: '#/definitions/Error'
     """
     # return "%r" % request.get_json()
     available_port = Port.allocate()
@@ -185,6 +209,10 @@ def show_instance_details_v1(instance_id):
         description: Details of the instance
         schema:
             $ref: '#/definitions/Instance'
+      404:
+        description: There is not an instance for the given instance_id.
+        schema:
+            $ref: '#/definitions/Error'
     """
     instance = Instance.get(instance_id)
     if instance is None:
@@ -210,6 +238,10 @@ def stop_instance_v1(instance_id):
           description: Instance stopped
           schema:
               $ref: '#/definitions/Instance'
+      404:
+          description: There is not an instance for the given instance_id.
+          schema:
+              $ref: '#/definitions/Error'
     """
     instance = Instance.get(instance_id)
     if instance is None:
@@ -263,3 +295,191 @@ def list_ports_v1():
             return jsonify(ports=[port.serialize for port in Port.get_available()])
         else:  # show_param is "unavailable":
             return jsonify(ports=[port.serialize for port in Port.get_unavailable()])
+
+
+@app.route("/files", endpoint="v1_files")
+def list_cached_files():
+    """
+    Returns the files cached and the original URLs that they cache.
+    ---
+    tags:
+      - file
+    responses:
+      200:
+        description: Cached files.
+        schema:
+            properties:
+                files:
+                    type: array
+                    items:
+                      $ref: '#/definitions/File'
+    """
+    # list available files
+    c_dir = app.config['CACHE_CONTAINER_DIR']
+    return jsonify(files=[cached_file.serialize(c_dir) for cached_file in CachedFile.get_all()])
+
+
+def delete_file(cached_file):
+    try:
+        os.remove(app.config['CACHE_DIR'] + cached_file.filename)
+        CachedFile.delete(cached_file)
+    except OSError as e:  # E.g., if the file does not exist.
+        if e.errno==errno.ENOENT:
+            # We wanted to delete it anyway so go ahead
+            CachedFile.delete(cached_file)
+        else: raise  # E.g., permission denied
+
+
+@app.route("/files", methods=['DELETE'], endpoint="v1_files_delete")
+def clear_cache():
+    """
+    Clears the cache of files.
+    ---
+    tags:
+      - file
+    responses:
+      200:
+        description: Cached files.
+        schema:
+            properties:
+                files:
+                    type: array
+                    items:
+                      $ref: '#/definitions/File'
+      500:
+        description: The file could not be deleted from the cache.
+        schema:
+            $ref: '#/definitions/Error'
+    """
+    deleted_files = []
+    c_dir = app.config['CACHE_CONTAINER_DIR']
+    for cached_file in CachedFile.get_all():
+        try:
+            delete_file(cached_file)  # TODO capture errors?
+        except OSError as e:
+            return internal_error(('Error during the file removal from the cache. %s. ' +
+                                'The exception raised with the following file: %s') %
+                                (e.strerror, cached_file.filename))
+        deleted_files.append(cached_file.serialize(c_dir))
+    return jsonify(files=deleted_files)
+
+
+def get_and_update_cached_file(file_url):
+    """Returns cached file for the given URL only if the file exists."""
+    cached_file = CachedFile.get(file_url)
+    if cached_file:
+        # check if the file still exists and remove the object from the DB otherwise
+        if os.path.isfile(app.config['CACHE_DIR'] + cached_file.filename):
+            return cached_file
+        CachedFile.delete(cached_file)  # else
+    return None
+
+
+@app.route("/files/<file_url>", endpoint="v1_file")
+def get_cached_file(file_url):
+    """
+    Returns the details the cached file if it exists.
+    ---
+    tags:
+      - file
+    parameters:
+      - name: file_url
+        in: path
+        description: URL of the file cached.
+        required: true
+        type: string
+    responses:
+      200:
+        description: Packet Tracer file cached
+        schema:
+          id: File
+          properties:
+            url:
+                type: string
+                description: URL of the file cached.
+            filename:
+                type: string
+                description: Path of the file in the containers.
+      404:
+        description: There is no file cached for the given URL.
+        schema:
+          $ref: '#/definitions/Error'
+    """
+    file_url = urllib.unquote(file_url)
+    cached_file = get_and_update_cached_file(file_url)
+    if cached_file is None:
+        return not_found(error="The URL is not cached.")
+    return jsonify(cached_file.serialize(app.config['CACHE_CONTAINER_DIR']))
+
+
+# Source: http://stackoverflow.com/questions/2257441/random-string-generation-with-upper-case-letters-and-digits-in-python
+def get_random_name(length=32):
+    return ''.join(random.SystemRandom().choice(string.ascii_lowercase + string.digits) for _ in range(length)) + '.pkt'
+
+
+@app.route("/files/<file_url>", methods=['POST'], endpoint="v1_file_cache")
+def cache_file(file_url):
+    """
+    Caches a Packet Tracer file.
+    ---
+    tags:
+      - file
+    parameters:
+      - name: file_url
+        in: path
+        description: URL of the file to be cached.
+        required: true
+        type: string
+    responses:
+      201:
+        description: Packet Tracer file cached.
+        schema:
+            $ref: '#/definitions/File'
+      400:
+        description: The URL could not be accessed. It might not exist.
+        schema:
+            $ref: '#/definitions/Error'
+    """
+    file_url = urllib.unquote(file_url)
+    cached_file = get_and_update_cached_file(file_url)
+    if cached_file:
+        return  jsonify(cached_file.serialize(app.config['CACHE_CONTAINER_DIR']))
+    # if not exist download and store
+    filename = get_random_name()
+    try:
+        urllib.urlretrieve(file_url, app.config['CACHE_DIR'] + filename)
+    except IOError:
+        bad_request(error="The URL passed could not be reached. Is it correct?")
+    new_cached = CachedFile.create(file_url, filename)
+    return jsonify(new_cached.serialize(app.config['CACHE_CONTAINER_DIR']))
+
+
+@app.route("/files/<file_url>", methods=['DELETE'], endpoint="v1_file_delete")
+def delete_file_from_cache(file_url):
+    """
+    Clears file from the cache.
+    ---
+    tags:
+      - file
+    parameters:
+      - name: file_url
+        in: path
+        description: URL of the file to be deleted from the cache.
+        required: true
+        type: string
+    responses:
+      201:
+        description: Packet Tracer file deleted from the cache.
+        schema:
+            $ref: '#/definitions/File'
+      404:
+        description: There is no file cached for the given URL.
+        schema:
+            $ref: '#/definitions/Error'
+    """
+    file_url = urllib.unquote(file_url)
+    cached_file = get_and_update_cached_file(file_url)
+    if not cached_file:
+        return not_found(error="The URL is not cached.")
+    delete_file(cached_file)
+    return  jsonify(cached_file.serialize(app.config['CACHE_CONTAINER_DIR']))

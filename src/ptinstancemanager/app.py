@@ -19,6 +19,8 @@ app.config['DOCKER_IMAGE'] = configuration.get_docker_image_name()
 app.config['DOCKER_DATA_ONLY'] = configuration.get_docker_data_container()
 app.config['DOCKER_VNC_PORT'] =  configuration.get_docker_vnc_port()
 app.config['DOCKER_PT_PORT'] =  configuration.get_docker_pt_port()
+app.config['CACHE_DIR'] =  configuration.get_cache_directory()
+app.config['CACHE_CONTAINER_DIR'] =  configuration.get_container_directory()
 app.config['SWAGGER'] = {
     "swagger_version": "2.0",
     "title": "pt-instances-management",

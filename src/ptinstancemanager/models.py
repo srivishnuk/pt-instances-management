@@ -139,6 +139,51 @@ class Port(db.Model):
 
 
 
+class CachedFile(db.Model):
+    __tablename__ = 'cached'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    url = db.Column(db.String, index=True, unique=True)
+    filename = db.Column(db.String, unique=True)
+
+    def __init__(self, url, local_filename):
+        self.url = url
+        self.filename = local_filename
+
+    def __repr__(self):
+        return '<CachedFile %r: %r>' % (self.url, self.filename)
+
+    def __str__(self):
+        return 'CachedFile %r: %r' % (self.url, self.filename)
+
+    def serialize(self, container_mount_dir):
+       """Return object data in easily serializeable format"""
+       return {
+            'url': self.url,
+            'filename': container_mount_dir + self.filename
+       }
+
+    @staticmethod
+    def create(url, local_filename):
+        cached_file = CachedFile(url, local_filename)
+        db.session.add(cached_file)
+        db.session.commit()
+        return cached_file
+
+    @staticmethod
+    def get(url):
+        return db.session.query(CachedFile).filter_by(url=url).first()
+
+    @staticmethod
+    def get_all():
+        return db.session.query(CachedFile).all()
+
+    @staticmethod
+    def delete(cached_file):
+        db.session.delete(cached_file)
+        db.session.commit()
+
+
+
 def init_database(dbase, lowest_port, highest_port):
     for port_number in range(lowest_port, highest_port+1):
         available_port = Port(port_number)

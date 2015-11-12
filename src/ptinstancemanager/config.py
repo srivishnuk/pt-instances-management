@@ -39,6 +39,14 @@ class ConfigFileReader(object):
     def get_highest_port(self):
         return int(self.config.get('Port', 'highest'))
 
+    def get_cache_directory(self):
+        ret = self.config.get('CachedFiles', 'cache_dir')
+        return ret if ret.endswith('/') else ret + '/'
+
+    def get_container_directory(self):
+        ret = self.config.get('CachedFiles', 'container_dir')
+        return ret if ret.endswith('/') else ret + '/'
+
 
 
 configuration = ConfigFileReader()
