@@ -421,8 +421,8 @@ def get_random_name(length=32):
     return ''.join(random.SystemRandom().choice(string.ascii_lowercase + string.digits) for _ in range(length)) + '.pkt'
 
 
-@app.route("/files/<file_url>", methods=['POST'], endpoint="v1_file_cache")
-def cache_file(file_url):
+@app.route("/files", methods=['POST'], endpoint="v1_file_cache")
+def cache_file():
     """
     Caches a Packet Tracer file.
     ---
@@ -430,7 +430,7 @@ def cache_file(file_url):
       - file
     parameters:
       - name: file_url
-        in: path
+        in: body
         description: URL of the file to be cached.
         required: true
         type: string
@@ -444,7 +444,7 @@ def cache_file(file_url):
         schema:
             $ref: '#/definitions/Error'
     """
-    file_url = urllib.unquote(file_url)
+    file_url = request.data
     cached_file = get_and_update_cached_file(file_url)
     if cached_file:
         return  jsonify(cached_file.serialize(app.config['CACHE_CONTAINER_DIR']))
@@ -453,7 +453,7 @@ def cache_file(file_url):
     try:
         urllib.urlretrieve(file_url, app.config['CACHE_DIR'] + filename)
     except IOError:
-        bad_request(error="The URL passed could not be reached. Is it correct?")
+        return bad_request(error="The URL passed could not be reached. Is '%s' correct?" % file_url)
     new_cached = CachedFile.create(file_url, filename)
     return jsonify(new_cached.serialize(app.config['CACHE_CONTAINER_DIR']))
 
