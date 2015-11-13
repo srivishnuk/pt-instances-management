@@ -7,8 +7,9 @@ Created on 13/07/2015
 import os
 import errno
 import random
-import urllib2
 import string
+import urllib2
+import logging
 from urlparse import urlparse
 from flask import redirect, request, render_template, url_for, jsonify
 from docker import Client
@@ -452,6 +453,7 @@ def configure_urllib2():
         proxy = urllib2.ProxyHandler(conf)
         opener = urllib2.build_opener(proxy)
         urllib2.install_opener(opener)
+        logging.info('Proxies set for urllib2: %s' % conf)
 
 @app.route("/files", methods=['POST'], endpoint="v1_file_cache")
 def cache_file():
@@ -483,10 +485,9 @@ def cache_file():
     # if not exist download and store
     filename = get_random_name()
     try:
-        configure_urllib2()
         with open(app.config['CACHE_DIR'] + filename, 'w') as f:
+            configure_urllib2()
             f.write(urllib2.urlopen(file_url).read())
-            f.close()
     except IOError:
         return bad_request(error="The URL passed could not be reached. Is '%s' correct?" % file_url)
     new_cached = CachedFile.create(file_url, filename)

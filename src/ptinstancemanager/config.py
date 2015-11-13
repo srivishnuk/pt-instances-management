@@ -15,6 +15,9 @@ class ConfigFileReader(object):
     def set_file_path(self, file_path):
         self.config.read(file_path)
 
+    def get_log(self):
+        return self.config.get('Log', 'file')
+
     def get_docker_url(self):
         return self.config.get('Docker', 'url')
 

@@ -4,13 +4,16 @@ Created on 13/07/2015
 @author: Aitor Gomez Goiri <aitor.gomez-goiri@open.ac.uk>
 """
 
-import urllib2
-from os import environ as env
+import logging
 from flask import Flask
 from flask.ext.sqlalchemy import SQLAlchemy
 from flasgger import Swagger
 from ptinstancemanager.config import configuration
 
+
+# Configure logging
+FORMAT = '%(asctime)-15s %(message)s'
+logging.basicConfig(filename=configuration.get_log(), level=logging.DEBUG, format=FORMAT)
 
 # Create web application
 app = Flask(__name__)
