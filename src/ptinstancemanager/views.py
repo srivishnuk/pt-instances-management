@@ -42,6 +42,19 @@ def internal_error(error=None):
 def unavailable(error=None):
     return get_json_error(503, 'Service Unavailable: %s' % error)
 
+@app.after_request
+def add_header(response):
+    response.headers['Link'] = ''
+    if request.path!='/details':
+        response.headers['Link'] += '<%sdetails>; rel="details"; title="Details of API", ' % request.url_root
+    if request.path!='/instances':
+        response.headers['Link'] += '<%sinstances>; rel="instances"; title="Packet Tracer instances\' management", ' % request.url_root
+    if request.path!='/ports':
+        response.headers['Link'] += '<%sports>; rel="ports"; title="Ports that can be allocated", ' % request.url_root
+    if request.path!='/files':
+        response.headers['Link'] += '<%sfiles>; rel="files"; title="Cache for Packet Tracer files", ' % request.url_root
+    response.headers['Link'] = response.headers['Link'][:-2]  # Remove last comma and space
+    return response
 
 @app.route("/details", endpoint="v1_details")
 def get_configuration_details():
@@ -65,7 +78,6 @@ def get_configuration_details():
     """
     return jsonify( lowest_port=app.config['LOWEST_PORT'],
                     highest_port=app.config['HIGHEST_PORT'] )
-
 
 def get_host():
     return urlparse(request.base_url).hostname
