@@ -432,6 +432,26 @@ def get_cached_file(file_url):
 def get_random_name(length=32):
     return ''.join(random.SystemRandom().choice(string.ascii_lowercase + string.digits) for _ in range(length)) + '.pkt'
 
+# Install proxy in urllib2 (if it is set)
+def get_proxy_config():
+    el = {}
+    env = os.environ
+    if 'http_proxy' in env:
+        el['http'] = env['http_proxy']
+    elif 'HTTP_PROXY' in env:
+        el['http'] = env['HTTP_PROXY']
+    if 'https_proxy' in env:
+        el['https'] = env['https_proxy']
+    elif 'HTTPS_PROXY' in env:
+        el['https'] = env['HTTPS_PROXY']
+    return el
+
+def configure_urllib2():
+    conf = get_proxy_config()
+    if conf:
+        proxy = urllib2.ProxyHandler(conf)
+        opener = urllib2.build_opener(proxy)
+        urllib2.install_opener(opener)
 
 @app.route("/files", methods=['POST'], endpoint="v1_file_cache")
 def cache_file():
@@ -463,6 +483,7 @@ def cache_file():
     # if not exist download and store
     filename = get_random_name()
     try:
+        configure_urllib2()
         with open(app.config['CACHE_DIR'] + filename, 'w') as f:
             f.write(urllib2.urlopen(file_url).read())
             f.close()
