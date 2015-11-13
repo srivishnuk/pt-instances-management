@@ -4,12 +4,35 @@ Created on 13/07/2015
 @author: Aitor Gomez Goiri <aitor.gomez-goiri@open.ac.uk>
 """
 
+import urllib2
+from os import environ as env
 from flask import Flask
 from flask.ext.sqlalchemy import SQLAlchemy
 from flasgger import Swagger
 from ptinstancemanager.config import configuration
 
 
+# Install proxy in urllib2 (if it is set)
+def get_proxy_config():
+    el = {}
+    if 'http_proxy' in env:
+        el['http'] = env['http_proxy']
+    elif 'HTTP_PROXY' in env:
+        el['http'] = env['HTTP_PROXY']
+    if 'https_proxy' in env:
+        el['HTTPS_PROXY'] = env['https_proxy']
+    elif 'HTTPS_PROXY' in env:
+        el['https'] = env['HTTPS_PROXY']
+    return el
+
+conf = get_proxy_config()
+if conf:
+    proxy = urllib2.ProxyHandler(conf)
+    opener = urllib2.build_opener(proxy)
+    urllib2.install_opener(opener)
+
+
+# Create web application
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = configuration.get_database_uri()
 app.config['LOWEST_PORT'] = configuration.get_lowest_port()
@@ -34,4 +57,5 @@ app.config['SWAGGER'] = {
 }
 swagger = Swagger(app)
 
+# Configure DB
 db = SQLAlchemy(app)

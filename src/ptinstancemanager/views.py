@@ -7,7 +7,7 @@ Created on 13/07/2015
 import os
 import errno
 import random
-import urllib
+import urllib2
 import string
 from urlparse import urlparse
 from flask import redirect, request, render_template, url_for, jsonify
@@ -463,7 +463,9 @@ def cache_file():
     # if not exist download and store
     filename = get_random_name()
     try:
-        urllib.urlretrieve(file_url, app.config['CACHE_DIR'] + filename)
+        with open(app.config['CACHE_DIR'] + filename, 'w') as f:
+            f.write(urllib2.urlopen(file_url).read())
+            f.close()
     except IOError:
         return bad_request(error="The URL passed could not be reached. Is '%s' correct?" % file_url)
     new_cached = CachedFile.create(file_url, filename)
