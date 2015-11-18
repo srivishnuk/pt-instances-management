@@ -12,10 +12,9 @@ import urllib2
 import logging
 from urlparse import urlparse
 from flask import redirect, request, render_template, url_for, jsonify
-from docker import Client
 from werkzeug.exceptions import BadRequest
+from ptinstancemanager import tasks
 from ptinstancemanager.app import app
-from ptinstancemanager.tasks import create_container
 from ptinstancemanager.models import Instance, Port, CachedFile
 
 
@@ -184,7 +183,7 @@ def create_instance_v1():
     # Create container with Docker
     try:
 	vnc_port = available_port.number + 10000
-        result = create_container.delay(available_port.number, vnc_port)
+        result = tasks.create_container.delay(available_port.number, vnc_port)
 	container_id = result.wait()
         # If success...
         instance = Instance.create(container_id, available_port.number, vnc_port)
@@ -252,11 +251,16 @@ def stop_instance_v1(instance_id):
     instance = Instance.get(instance_id)
     if instance is None:
         return not_found(error="The instance does not exist.")
-    docker = Client(app.config['DOCKER_URL'], version='auto')
-    docker.stop(instance.docker_id)
-    instance.stop()
-    Port.get(instance.pt_port).release()  # The port can be now reused by a new PT instance
-    return jsonify(instance.serialize(request.base_url, get_host()))
+
+    try:
+        result = tasks.stop_container.delay(instance.docker_id)
+        result.wait()
+    
+        instance.stop()
+        Port.get(instance.pt_port).release()  # The port can be now reused by a new PT instance
+        return jsonify(instance.serialize(request.base_url, get_host()))
+    except Exception as e:
+        return internal_error(e.args[0])
 
 
 @app.route("/ports", endpoint="v1_ports")

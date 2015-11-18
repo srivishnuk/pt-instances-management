@@ -27,3 +27,9 @@ def create_container(pt_port, vnc_port):
     response = docker.start(container=container.get('Id'))  # TODO log response?
 
     return container.get('Id')
+
+
+@celery.task()
+def stop_container(container_id):
+    docker = Client(app.config['DOCKER_URL'], version='auto')
+    docker.stop(container_id)
