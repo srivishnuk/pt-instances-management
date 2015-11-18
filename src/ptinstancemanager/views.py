@@ -15,6 +15,7 @@ from flask import redirect, request, render_template, url_for, jsonify
 from docker import Client
 from werkzeug.exceptions import BadRequest
 from ptinstancemanager.app import app
+from ptinstancemanager.tasks import create_container
 from ptinstancemanager.models import Instance, Port, CachedFile
 
 
@@ -181,31 +182,19 @@ def create_instance_v1():
         return unavailable(error="The server cannot create new instances. Please, wait and retry it.")
 
     # Create container with Docker
-    vnc_port = available_port.number + 10000
-    docker = Client(app.config['DOCKER_URL'], version='auto')
-    port_bindings = { app.config['DOCKER_PT_PORT']: available_port.number,
-                      app.config['DOCKER_VNC_PORT']: vnc_port }
-    vol_bindings = { app.config['CACHE_DIR']:
-                    {'bind': app.config['CACHE_CONTAINER_DIR'], 'mode': 'ro'} }
-    host_config = docker.create_host_config(
-                                port_bindings=port_bindings,
-                                binds=vol_bindings,
-                                volumes_from=(app.config['DOCKER_DATA_ONLY'],))
-    container = docker.create_container(image=app.config['DOCKER_IMAGE'],
-                                        ports=list(port_bindings.keys()),
-                                        volumes=[vol_bindings[k]['bind'] for k in vol_bindings],
-                                        host_config=host_config)
-    if container.get('Warnings'):
-        return internal_error('Error during container creation: %s' % container.get('Warnings'))
+    try:
+	vnc_port = available_port.number + 10000
+        result = create_container.delay(available_port.number, vnc_port)
+	container_id = result.wait()
+        # If success...
+        instance = Instance.create(container_id, available_port.number, vnc_port)
+        available_port.assign(instance.id)
 
-    # If success...
-    response = docker.start(container=container.get('Id'))  # TODO log response?
-    instance = Instance.create(container.get('Id'), available_port.number, vnc_port)
-    available_port.assign(instance.id)
-
-    # If sth went wrong: available_port.release()
-    # Return appropriate HTTP errorv
-    return jsonify(instance.serialize("%s/%d" % (request.base_url, instance.id), get_host()))
+        # If sth went wrong: available_port.release()
+        # Return appropriate HTTP errorv
+        return jsonify(instance.serialize("%s/%d" % (request.base_url, instance.id), get_host()))
+    except Exception as e:
+        return internal_error(e.args[0])
 
 
 @app.route("/instances/<instance_id>", endpoint="v1_instance")
