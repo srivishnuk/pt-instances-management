@@ -8,7 +8,6 @@ Configuration file path is read from program args.
 """
 
 from argparse import ArgumentParser
-from ptinstancemanager.tasks import create_containers
 from ptinstancemanager.config import configuration
 
 
@@ -22,7 +21,6 @@ def main(config_file, create_database, port_number):
 		db.create_all() # By default it doesn't create already created tables
 		from ptinstancemanager.models import init_database
 		init_database(db, app.config['LOWEST_PORT'], app.config['HIGHEST_PORT'])
-		create_containers(3)
 	else:
 		# We don't run the app in the database creation mode.
 		# Otherwise on flask's automatic restarts it will try to create the database and data again!
