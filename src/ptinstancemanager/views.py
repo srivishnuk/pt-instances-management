@@ -84,6 +84,11 @@ def get_host():
     return urlparse(request.base_url).hostname
 
 
+def get_json_instances(instances):
+    h = get_host()
+    return jsonify(instances=[ins.serialize("%s/%d" % (request.base_url, ins.id), h) for ins in instances])
+
+
 @app.route("/instances", endpoint="v1_instances")
 def list_instances_v1():
     """
@@ -97,7 +102,7 @@ def list_instances_v1():
         type: string
         description: Show different types of instances
         default: running
-        enum: [all, running, finished]
+        enum: [all, starting, unassigned, assigned, running, finished, error]
     responses:
       200:
         description: Packet Tracer instances
@@ -109,21 +114,28 @@ def list_instances_v1():
                       $ref: '#/definitions/Instance'
     """
     show_param = request.args.get("show")
-    h = get_host()
     if show_param is None or show_param == "running":  # default option
-        return jsonify(instances=[ins.serialize("%s/%d" % (request.base_url, ins.id), h) for ins in Instance.get_running()])
+        return get_json_instances(Instance.get_running())
     else:
-        if show_param not in ("all", "finished"):
+        if show_param not in ("all", "starting", "unassigned", "assigned", "finished"):
             return BadRequest("The 'show' parameter must contain one of the following values: all, running or finished.")
 
         if show_param == "all":
-            return jsonify(instances=[ins.serialize("%s/%d" % (request.base_url, ins.id), h) for ins in Instance.get_all()])  # .limit(10)
+            return get_json_instances(Instance.get_all())  # .limit(10)
+        elif show_param == "starting":
+            return get_json_instances(Instance.get_starting())
+        elif show_param == "unassigned":
+            return get_json_instances(Instance.get_unassigned())
+        elif show_param == "assigned":
+            return get_json_instances(Instance.get_assigned())
+        elif show_param == "error":
+	    return get_json_instances(Instance.get_error())
         else:  # show_param is "finished":
-            return jsonify(instances=[ins.serialize("%s/%d" % (request.base_url, ins.id), h) for ins in Instance.get_finished()])
+            return get_json_instances(Instance.get_finished())
 
 
 @app.route("/instances", methods=['POST'], endpoint="v1_instance_create")
-def create_instance_v1():
+def assign_instance_v1():
     """
     Creates a new Packet Tracer instance.
     ---
@@ -146,6 +158,10 @@ def create_instance_v1():
             id:
                 type: integer
                 description: Identifier of the instance
+	    status:
+		type: string
+	        description: Show status of the given instance
+	        enum: [all, starting, unassigned, assigned, running, finished, error]
             dockerId:
                 type: string
                 description: Identifier of the docker container which serves the instance
@@ -174,24 +190,13 @@ def create_instance_v1():
         schema:
             $ref: '#/definitions/Error'
     """
-    # return "%r" % request.get_json()
-    available_port = Port.allocate()
-
-    if available_port is None:
-        return unavailable(error="The server cannot create new instances. Please, wait and retry it.")
-
-    # Create container with Docker
     try:
-	vnc_port = available_port.number + 10000
-        result = tasks.create_container.delay(available_port.number, vnc_port)
-	container_id = result.wait()
-        # If success...
-        instance = Instance.create(container_id, available_port.number, vnc_port)
-        available_port.assign(instance.id)
-
-        # If sth went wrong: available_port.release()
-        # Return appropriate HTTP errorv
-        return jsonify(instance.serialize("%s/%d" % (request.base_url, instance.id), get_host()))
+        result = tasks.assign_container.delay()
+	instance_id = result.wait()
+	if instance_id:
+	    instance = Instance.get(instance_id)
+            return jsonify(instance.serialize("%s/%d" % (request.base_url, instance.id), get_host()))
+	return unavailable()
     except Exception as e:
         return internal_error(e.args[0])
 
@@ -226,7 +231,7 @@ def show_instance_details_v1(instance_id):
 
 
 @app.route("/instances/<instance_id>", methods=['DELETE'], endpoint="v1_instance_delete")
-def stop_instance_v1(instance_id):
+def unassign_instance_v1(instance_id):
     """
     Stops a running Packet Tracer instance.
     ---
@@ -253,11 +258,9 @@ def stop_instance_v1(instance_id):
         return not_found(error="The instance does not exist.")
 
     try:
-        result = tasks.stop_container.delay(instance.docker_id)
+        result = tasks.unassign_container.delay(instance_id)
         result.wait()
-    
-        instance.stop()
-        Port.get(instance.pt_port).release()  # The port can be now reused by a new PT instance
+	# TODO update instance object as status has changed
         return jsonify(instance.serialize(request.base_url, get_host()))
     except Exception as e:
         return internal_error(e.args[0])
