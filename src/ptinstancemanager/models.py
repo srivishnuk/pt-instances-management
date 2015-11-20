@@ -10,6 +10,7 @@ from ptinstancemanager.app import db
 
 
 class Instance(db.Model):
+    ERROR = -5  # Status to be rechecked on docker (stopped, in an unexpected state...)
     STARTING = -4
     UNASSIGNED = -3
     ASSIGNED = -2
@@ -38,35 +39,41 @@ class Instance(db.Model):
         return self.deleted_at is None # check if deletion time is set
 
     def is_starting(self):
-        return self.status == STARTING
+        return self.status == Instance.STARTING
 
     def is_assigned(self):
-        return self.status == ASSIGNED
+        return self.status == Instance.ASSIGNED
 
     def assign(self):
-        self.status = ASSIGNED
+        self.status = Instance.ASSIGNED
         db.session.commit()
 
     def unassign(self):
-        self.status = UNASSIGNED
+        self.status = Instance.UNASSIGNED
+        db.session.commit()
+
+    def mark_error(self):
+        self.status = Instance.ERROR
         db.session.commit()
 
     def stop(self):
         self.deleted_at = datetime.now()  # set deletion time
-        self.status = DELETED
+        self.status = Instance.DELETED
         db.session.commit()
 
     def get_id(self):
         return self.id
 
     def get_status(self):
-        if self.status == STARTING:
+        if self.status == Instance.STARTING:
             return "starting"
-        elif self.status == UNASSIGNED:
+        elif self.status == Instance.UNASSIGNED:
             return "unassigned"
-        elif self.status == ASSIGNED:
+        elif self.status == Instance.ASSIGNED:
             return "assigned"
-        return "finished"  # else DELETED
+        elif self.status == Instance.ERROR:
+            return "error"
+        return "finished"  # else Instance.DELETED
 
     def serialize(self, url, local_machine):
        """Return object data in easily serializeable format"""
@@ -101,16 +108,20 @@ class Instance(db.Model):
         return db.session.query(Instance).filter_by(deleted_at = None)
 
     @staticmethod
+    def get_errors():
+        return db.session.query(Instance).filter_by(deleted_at = None, status = Instance.ERROR)
+
+    @staticmethod
     def get_starting():
-        return db.session.query(Instance).filter_by(deleted_at = None, status = STARTING)
+        return db.session.query(Instance).filter_by(deleted_at = None, status = Instance.STARTING)
 
     @staticmethod
     def get_unassigned():
-        return db.session.query(Instance).filter_by(deleted_at = None, status = UNASSIGNED)
+        return db.session.query(Instance).filter_by(deleted_at = None, status = Instance.UNASSIGNED)
 
     @staticmethod
     def get_assigned():
-        return db.session.query(Instance).filter_by(deleted_at = None, status = ASSIGNED)
+        return db.session.query(Instance).filter_by(deleted_at = None, status = Instance.ASSIGNED)
 
     @staticmethod
     def get_finished():
