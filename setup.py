@@ -35,7 +35,7 @@ setup(name="ptinstancemanager",
 	"ptchecker"
       ],
       dependency_links=[
-      	'git+https://github.com/PTAnywhere/pt-checker.git#egg=ptchecker'
+      	'git+https://github.com/PTAnywhere/pt-checker.git#egg=ptchecker-0.1'
       ],
       entry_points={
           'console_scripts': [
