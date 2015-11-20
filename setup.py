@@ -34,6 +34,9 @@ setup(name="ptinstancemanager",
 	"redis",
 	"ptchecker"
       ],
+      dependency_links=[
+      	'https://github.com/PTAnywhere/pt-checker/tarball/master#egg=ptchecker'
+      ],
       entry_points={
           'console_scripts': [
               'run-api = ptinstancemanager.run:entry_point',
