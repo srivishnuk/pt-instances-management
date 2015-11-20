@@ -108,11 +108,12 @@ def unassign_container(instance_id):
         instance.unassign()
 
 
-@celery.task()
+@celery.task(max_retries=5)
 def wait_for_ready_container(instance_id, timeout):
     logging.info('Waiting for container to be ready.')
     instance = Instance.get(instance_id)
     is_running = ptchecker.is_running(app.config['PT_CHECKER'], 'localhost', instance.pt_port, float(timeout))
     if not is_running:
-	raise Exception('The container has not answered yet.')
+    	# TODO mark as an error after all the retries
+	raise self.retry(Exception('The container has not answered yet.'))
     unassign_container.delay(instance_id)  # else
