@@ -1,2 +1,6 @@
+# Development versions
+-e git+https://github.com/PTAnywhere/pt-checker.git#egg=ptchecker
+
+
 # Let's reuse the requirements specified in setup.py
 -e .
