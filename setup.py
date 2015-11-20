@@ -35,7 +35,7 @@ setup(name="ptinstancemanager",
 	"ptchecker"
       ],
       dependency_links=[
-      	'https://github.com/PTAnywhere/pt-checker/tarball/master#egg=ptchecker'
+      	'git+https://github.com/PTAnywhere/pt-checker.git#egg=ptchecker'
       ],
       entry_points={
           'console_scripts': [
