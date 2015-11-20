@@ -10,8 +10,13 @@ from ptinstancemanager.app import db
 
 
 class Instance(db.Model):
+    STARTING = -4
+    UNASSIGNED = -3
+    ASSIGNED = -2
+    DELETED = -1
     __tablename__ = 'instance'
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    status = db.Column(db.Integer, default=STARTING)
     docker_id = db.Column(db.String)
     pt_port = db.Column(db.Integer)
     vnc_port = db.Column(db.Integer)
@@ -32,12 +37,36 @@ class Instance(db.Model):
     def is_active(self):
         return self.deleted_at is None # check if deletion time is set
 
+    def is_starting(self):
+        return self.status == STARTING
+
+    def is_assigned(self):
+        return self.status == ASSIGNED
+
+    def assign(self):
+        self.status = ASSIGNED
+        db.session.commit()
+
+    def unassign(self):
+        self.status = UNASSIGNED
+        db.session.commit()
+
     def stop(self):
         self.deleted_at = datetime.now()  # set deletion time
+        self.status = DELETED
         db.session.commit()
 
     def get_id(self):
         return self.id
+
+    def get_status(self):
+        if self.status == STARTING:
+            return "starting"
+        elif self.status == UNASSIGNED:
+            return "unassigned"
+        elif self.status == ASSIGNED:
+            return "assigned"
+        return "finished"  # else DELETED
 
     def serialize(self, url, local_machine):
        """Return object data in easily serializeable format"""
@@ -48,7 +77,8 @@ class Instance(db.Model):
             'packetTracer': "%s:%d" % (local_machine, self.pt_port),
             'vnc': "vnc://%s:%d" % (local_machine, self.vnc_port),
             'createdAt': self.created_at.isoformat(),
-            'removedAt': self.deleted_at.isoformat() if self.deleted_at else None
+            'removedAt': self.deleted_at.isoformat() if self.deleted_at else None,
+            'status': self.get_status()
        }
 
     @staticmethod
@@ -71,9 +101,20 @@ class Instance(db.Model):
         return db.session.query(Instance).filter_by(deleted_at = None)
 
     @staticmethod
+    def get_starting():
+        return db.session.query(Instance).filter_by(deleted_at = None, status = STARTING)
+
+    @staticmethod
+    def get_unassigned():
+        return db.session.query(Instance).filter_by(deleted_at = None, status = UNASSIGNED)
+
+    @staticmethod
+    def get_assigned():
+        return db.session.query(Instance).filter_by(deleted_at = None, status = ASSIGNED)
+
+    @staticmethod
     def get_finished():
         return db.session.query(Instance).filter(Instance.deleted_at != None).all()
-
 
 
 class Port(db.Model):
