@@ -8,7 +8,6 @@ Configuration file path is read from program args.
 """
 
 from argparse import ArgumentParser
-from ptinstancemanager.tasks import create_containers
 from ptinstancemanager.config import configuration
 
 
@@ -21,6 +20,7 @@ def entry_point():
 	args = parser.parse_args()
 
         configuration.set_file_path(args.config)
+        from ptinstancemanager.tasks import create_containers
 	create_containers(args.number)
 
 
