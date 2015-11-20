@@ -115,5 +115,5 @@ def wait_for_ready_container(instance_id, timeout):
     is_running = ptchecker.is_running(app.config['PT_CHECKER'], 'localhost', instance.pt_port, float(timeout))
     if not is_running:
     	# TODO mark as an error after all the retries
-	raise self.retry(Exception('The container has not answered yet.'))
+	raise wait_for_ready_container.retry(exc=Exception('The container has not answered yet.'))
     unassign_container.delay(instance_id)  # else
