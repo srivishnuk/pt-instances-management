@@ -18,7 +18,6 @@ def create_containers(num_containers):
             raise Exception('The server cannot create new instances. Please, wait and retry it.')
 
         res = create_container.apply_async((available_port.number,), link=wait_for_ready_container.s(10))
-	res.get()
 
 
 @celery.task()
