@@ -52,11 +52,15 @@ class Instance(db.Model):
         self.status = Instance.UNASSIGNED
         db.session.commit()
 
+    def mark_starting(self):
+        self.status = Instance.STARTING
+        db.session.commit()
+
     def mark_error(self):
         self.status = Instance.ERROR
         db.session.commit()
 
-    def stop(self):
+    def delete(self):
         self.deleted_at = datetime.now()  # set deletion time
         self.status = Instance.DELETED
         db.session.commit()
@@ -98,6 +102,10 @@ class Instance(db.Model):
     @staticmethod
     def get(instance_id):
         return db.session.query(Instance).filter_by(id = instance_id).first()
+
+    @staticmethod
+    def get_by_docker_id(docker_id):
+        return db.session.query(Instance).filter_by(docker_id = docker_id).first()
 
     @staticmethod
     def get_all():
