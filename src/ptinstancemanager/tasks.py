@@ -1,3 +1,4 @@
+import re
 import logging
 from docker import Client
 from docker.errors import APIError
@@ -120,21 +121,29 @@ def wait_for_ready_container(instance_id, timeout=30):
 
 
 @celery.task()
+# This is a sort of mix between a Garbage collector and a Supervisor daemon :-P
 def monitor_containers():
     logger.info('Monitoring instances.')
     restarted_instances = []
     docker = Client(app.config['DOCKER_URL'], version='auto')
     try:
-        # Restart stopped containers (which exited successfully)
-    	for container in cli.containers(filters={'exited': 0, 'label': 'ancestor=packettracer'}):
-            container_id = container.get('Id')
-            instance = Instance.get_by_docker_id(container_id)
-            if instance:
-                logger.info('Restarting %s.' % instance)
-                restarted_instances.append(instance.id)
-                instance.mark_starting()
-                docker.start(container=container_id)
-                wait_for_ready_container.delay(instance_id)
+        # 'exited': 0 throws exception, 'exited': '0' does not work.
+        # Because of this I have felt forced to use regular expressions :-(
+        pattern = re.compile(r"Exited [(](\d+)[)]")
+    	for container in cli.containers(filters={'status': 'exited'}):
+            # Ignore containers not created from image 'packettracer'
+            if container.get('Image')=='packettracer':
+                match = pattern.match(container.get('Status'))
+                if match and match.group(1)=='0':
+                    # Restart stopped containers (which exited successfully)
+                    container_id = container.get('Id')
+                    instance = Instance.get_by_docker_id(container_id)
+                    if instance:
+                        logger.info('Restarting %s.' % instance)
+                        restarted_instances.append(instance.id)
+                        instance.mark_starting()
+                        docker.start(container=container_id)
+                        wait_for_ready_container.delay(instance_id)
 
         for erroneous_instance in Instance.get_errors():
             if not erroneous_instance.docker_id in restarted_instances:
@@ -144,7 +153,7 @@ def monitor_containers():
                 # Very conservative approach:
                 #   we remove it even if it might still be usable.
                 remove_container.delay(erroneous_instance.docker_id)
-                # TODO replace erroneous instance by a new one
+                # TODO replace erroneous instance with a new one?
     except APIError as ae:
         logger.error('Error on container monitoring.')
         logger.error('Docker API exception. %s.' % ae)
