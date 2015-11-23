@@ -85,7 +85,7 @@ def assign_container():
             logger.error('Docker API exception. %s.' % ae)
     	    # e.g., if it was already unpaused or it has been stopped
     	    instance.mark_error()
-            monitor_containers.delay()
+            monitor_containers.s().delay()
 
 
 @celery.task()
@@ -102,7 +102,7 @@ def unassign_container(instance_id):
         logger.error('Docker API exception. %s.' % ae)
     	# e.g., if it was already paused
     	instance.mark_error()
-        monitor_containers.delay()
+        monitor_containers.s().delay()
 
 
 @celery.task(max_retries=5)
@@ -113,10 +113,10 @@ def wait_for_ready_container(instance_id, timeout=30):
     instance = Instance.get(instance_id)
     is_running = ptchecker.is_running(app.config['PT_CHECKER'], 'localhost', instance.pt_port, float(timeout))
     if is_running:
-        unassign_container.delay(instance_id)  # else
+        unassign_container.s(instance_id).delay()  # else
     else:
         instance.mark_error()
-        monitor_containers.delay()
+        monitor_containers.s().delay()
 	    # raise wait_for_ready_container.retry(exc=Exception('The container has not answered yet.'))
 
 
@@ -143,7 +143,7 @@ def monitor_containers():
                         restarted_instances.append(instance.id)
                         instance.mark_starting()
                         docker.start(container=container_id)
-                        wait_for_ready_container.delay(instance_id)
+                        wait_for_ready_container.s(instance_id).delay()
 
         for erroneous_instance in Instance.get_errors():
             if not erroneous_instance.docker_id in restarted_instances:
@@ -152,7 +152,7 @@ def monitor_containers():
             	Port.get(instance.pt_port).release()
                 # Very conservative approach:
                 #   we remove it even if it might still be usable.
-                remove_container.delay(erroneous_instance.docker_id)
+                remove_container.s(erroneous_instance.docker_id).delay()
                 # TODO replace erroneous instance with a new one?
     except APIError as ae:
         logger.error('Error on container monitoring.')
