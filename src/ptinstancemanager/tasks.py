@@ -130,7 +130,7 @@ def monitor_containers():
         # 'exited': 0 throws exception, 'exited': '0' does not work.
         # Because of this I have felt forced to use regular expressions :-(
         pattern = re.compile(r"Exited [(](\d+)[)]")
-    	for container in cli.containers(filters={'status': 'exited'}):
+    	for container in docker.containers(filters={'status': 'exited'}):
             # Ignore containers not created from image 'packettracer'
             if container.get('Image')=='packettracer':
                 match = pattern.match(container.get('Status'))
