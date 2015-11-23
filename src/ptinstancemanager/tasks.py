@@ -143,7 +143,7 @@ def monitor_containers():
                         restarted_instances.append(instance.id)
                         instance.mark_starting()
                         docker.start(container=container_id)
-                        wait_for_ready_container.s(instance_id).delay()
+                        wait_for_ready_container.s(instance.id).delay()
 
         for erroneous_instance in Instance.get_errors():
             if not erroneous_instance.docker_id in restarted_instances:
