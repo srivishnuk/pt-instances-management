@@ -81,7 +81,7 @@ def assign_container():
             logging.error('Docker API exception. %s.' % ae)
     	    # e.g., if it was already unpaused or it has been stopped
     	    instance.mark_error()
-    	    logging.error('Docker API exception. %s.' % ae)
+            monitor_containers.delay()
 
 
 @celery.task()
@@ -91,14 +91,13 @@ def unassign_container(instance_id):
     docker = Client(app.config['DOCKER_URL'], version='auto')
     try:
         docker.pause(instance.docker_id)
+        instance.unassign()
     except APIError as ae:
         logging.error('Error unassigning instance %s.' % instance_id)
         logging.error('Docker API exception. %s.' % ae)
     	# e.g., if it was already paused
     	instance.mark_error()
         monitor_containers.delay()
-    finally:
-        instance.unassign()
 
 
 @celery.task(max_retries=5)
@@ -118,6 +117,7 @@ def wait_for_ready_container(instance_id, timeout=30):
 
 @celery.task()
 def monitor_containers():
+    logging.info('Monitoring instances.')
     restarted_instances = []
     docker = Client(app.config['DOCKER_URL'], version='auto')
     try:
@@ -126,6 +126,7 @@ def monitor_containers():
             container_id = container.get('Id')
             instance = Instance.get_by_docker_id(container_id)
             if instance:
+                logging.info('Restarting %s.' % instance)
                 restarted_instances.append(instance.id)
                 instance.mark_starting()
                 docker.start(container=container_id)
@@ -133,6 +134,7 @@ def monitor_containers():
 
         for erroneous_instance in Instance.get_errors():
             if not erroneous_instance.docker_id in restarted_instances:
+                logging.info('Deleting erroneous %s.' % instance)
                 instance.delete()
             	Port.get(instance.pt_port).release()
                 # Very conservative approach:
