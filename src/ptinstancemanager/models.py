@@ -9,20 +9,82 @@ from sqlalchemy.types import NullType
 from ptinstancemanager.app import db
 
 
+class Allocation(db.Model):
+    __tablename__ = 'allocation'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    created_at = db.Column(db.DateTime, default=datetime.now)
+    deleted_at = db.Column(db.DateTime)
+
+    def __init__(self, instance_id):
+        self.using_instance = instance_id
+
+    def __repr__(self):
+        return '<Allocation %r>' % self.id
+
+    def __str__(self):
+        return 'Allocation-%r' % self.id
+
+    def is_active(self):
+        return self.deleted_at is None # check if deletion time is set
+
+    def delete(self):
+        self.deleted_at = datetime.now()  # set deletion time
+        self.using_instance = Allocation.NONE
+        db.session.commit()
+
+    def serialize(self, url, local_machine):
+        """Return object data in easily serializeable format"""
+        pt_value = None
+        if self.is_active():
+            el = Instance.get_by_allocation_id(self.id)
+            if el:
+                pt_value = "%s:%d" % (local_machine, el.pt_port)
+        return {
+            'id': self.id,
+            'url': url,
+            'packetTracer': pt_value,
+            'createdAt': self.created_at.isoformat(),
+            'removedAt': self.deleted_at.isoformat() if self.deleted_at else None
+        }
+
+    @staticmethod
+    def create():
+        allocation = Allocation()
+        db.session.add(allocation)
+        db.session.commit()
+        return allocation
+
+    @staticmethod
+    def get(allocation_id):
+        return db.session.query(Allocation).filter_by(id=allocation_id).first()
+
+    @staticmethod
+    def get_all():
+        return db.session.query(Allocation).all()
+
+    @staticmethod
+    def get_current():
+        return db.session.query(Allocation).filter_by(deleted_at = None)
+
+    @staticmethod
+    def get_finished():
+        return db.session.query(Allocation).filter(Allocation.deleted_at != None).all()
+
+
 class Instance(db.Model):
-    ERROR = -5  # Status to be rechecked on docker (stopped, in an unexpected state...)
-    STARTING = -4
-    UNASSIGNED = -3
-    ASSIGNED = -2
-    DELETED = -1
+    ERROR = -3  # Status to be rechecked on docker (stopped, in an unexpected state...)
+    STARTING = -2
+    READY = -1
+    NONE = -1
     __tablename__ = 'instance'
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    status = db.Column(db.Integer, default=STARTING)
     docker_id = db.Column(db.String)
     pt_port = db.Column(db.Integer)
     vnc_port = db.Column(db.Integer)
     created_at = db.Column(db.DateTime, default=datetime.now)
     deleted_at = db.Column(db.DateTime)
+    allocated_by = db.Column(db.Integer, default=NONE)
+    status = db.Column(db.Integer, default=STARTING)
 
     def __init__(self, docker_id, pt_port, vnc_port):
         self.docker_id = docker_id
@@ -38,22 +100,32 @@ class Instance(db.Model):
     def is_active(self):
         return self.deleted_at is None # check if deletion time is set
 
-    def is_starting(self):
-        return self.status == Instance.STARTING
+    def is_allocated(self):
+        return self.allocated_by!=Instance.NONE
 
-    def is_assigned(self):
-        return self.status == Instance.ASSIGNED
+    def allocate(self):
+        if self.is_allocated():
+            # Return already existing one
+            return Allocation.get(self.allocated_by)
+        else:
+            ret = Allocation.create()
+            self.allocated_by = ret.id
+            db.session.commit()
+            return ret
 
-    def assign(self):
-        self.status = Instance.ASSIGNED
-        db.session.commit()
-
-    def unassign(self):
-        self.status = Instance.UNASSIGNED
-        db.session.commit()
+    def deallocate(self):
+        if self.is_allocated():
+            allocation = Allocation.get(self.allocated_by)
+            allocation.delete()
+            self.allocated_by = Instance.NONE
+            db.session.commit()
 
     def mark_starting(self):
         self.status = Instance.STARTING
+        db.session.commit()
+
+    def mark_ready(self):
+        self.status = Instance.READY
         db.session.commit()
 
     def mark_error(self):
@@ -61,23 +133,23 @@ class Instance(db.Model):
         db.session.commit()
 
     def delete(self):
+        self.deallocate()
         self.deleted_at = datetime.now()  # set deletion time
-        self.status = Instance.DELETED
         db.session.commit()
 
     def get_id(self):
         return self.id
 
     def get_status(self):
-        if self.status == Instance.STARTING:
-            return "starting"
-        elif self.status == Instance.UNASSIGNED:
-            return "unassigned"
-        elif self.status == Instance.ASSIGNED:
-            return "assigned"
-        elif self.status == Instance.ERROR:
-            return "error"
-        return "finished"  # else Instance.DELETED
+        if self.is_active():
+            if self.status == Instance.STARTING:
+                return "starting"
+            elif self.status == Instance.ERROR:
+                return "error"
+            #elif self.status == Instance.READY:
+            return "allocated" if self.is_allocated() else "deallocated"
+        else:
+            return "finished"
 
     def serialize(self, url, local_machine):
        """Return object data in easily serializeable format"""
@@ -108,6 +180,10 @@ class Instance(db.Model):
         return db.session.query(Instance).filter_by(docker_id = docker_id).first()
 
     @staticmethod
+    def get_by_allocation_id(allocation_id):
+        return db.session.query(Instance).filter_by(allocated_by = allocation_id).first()
+
+    @staticmethod
     def get_all():
         return db.session.query(Instance).all()
 
@@ -116,7 +192,11 @@ class Instance(db.Model):
         return db.session.query(Instance).filter_by(deleted_at = None)
 
     @staticmethod
-    def get_errors():
+    def get_finished():
+        return db.session.query(Instance).filter(Instance.deleted_at != None).all()
+
+    @staticmethod
+    def get_erroneous():
         return db.session.query(Instance).filter_by(deleted_at = None, status = Instance.ERROR)
 
     @staticmethod
@@ -124,16 +204,13 @@ class Instance(db.Model):
         return db.session.query(Instance).filter_by(deleted_at = None, status = Instance.STARTING)
 
     @staticmethod
-    def get_unassigned():
-        return db.session.query(Instance).filter_by(deleted_at = None, status = Instance.UNASSIGNED)
+    def get_deallocated():
+        return db.session.query(Instance).filter_by(deleted_at = None, allocated_by = Instance.NONE)
 
     @staticmethod
-    def get_assigned():
-        return db.session.query(Instance).filter_by(deleted_at = None, status = Instance.ASSIGNED)
+    def get_allocated():
+        return db.session.query(Instance).filter(Instance.deleted_at == None, Instance.allocated_by != Instance.NONE)
 
-    @staticmethod
-    def get_finished():
-        return db.session.query(Instance).filter(Instance.deleted_at != None).all()
 
 
 class Port(db.Model):

@@ -15,7 +15,7 @@ from flask import redirect, request, render_template, url_for, jsonify
 from werkzeug.exceptions import BadRequest
 from ptinstancemanager import tasks
 from ptinstancemanager.app import app
-from ptinstancemanager.models import Instance, Port, CachedFile
+from ptinstancemanager.models import Allocation, Instance, Port, CachedFile
 
 
 @app.route("/")
@@ -57,6 +57,7 @@ def add_header(response):
     response.headers['Link'] = response.headers['Link'][:-2]  # Remove last comma and space
     return response
 
+
 @app.route("/details", endpoint="v1_details")
 def get_configuration_details():
     """
@@ -80,8 +81,178 @@ def get_configuration_details():
     return jsonify( lowest_port=app.config['LOWEST_PORT'],
                     highest_port=app.config['HIGHEST_PORT'] )
 
+
 def get_host():
     return urlparse(request.base_url).hostname
+
+def get_json_allocations(allocations):
+    h = get_host()
+    return jsonify(allocations=[al.serialize("%s/%d" % (request.base_url, al.id), h) for al in allocations])
+
+
+@app.route("/allocations", endpoint="v1_allocations")
+def list_allocations_v1():
+    """
+    Lists allocations.
+    ---
+    tags:
+      - allocation
+    parameters:
+      - name: show
+        in: query
+        type: string
+        description: Show different allocations
+        default: current
+        enum: [all, current, finished]
+    responses:
+      200:
+        description: Allocations of Packet Tracer instances
+        schema:
+            properties:
+                instances:
+                    type: array
+                    items:
+                      $ref: '#/definitions/Allocation'
+    """
+    show_param = request.args.get("show")
+    if show_param is None or show_param == "current":  # default option
+        return get_json_allocations(Allocation.get_current())
+    else:
+        if show_param not in ("all", "current", "finished"):
+            return BadRequest("The 'show' parameter must contain one of the following values: all, running or finished.")
+
+        if show_param == "all":
+            return get_json_allocations(Allocation.get_all())  # .limit(10)
+        else:  # show_param is "finished":
+            return get_json_allocations(Allocation.get_finished())
+
+
+@app.route("/allocations", methods=['POST'], endpoint="v1_allocation_create")
+def allocate_instance_v1():
+    """
+    Allocates a Packet Tracer instance.
+    ---
+    tags:
+      - allocation
+    responses:
+      201:
+        description: Packet Tracer instance allocated (i.e., allocation created)
+        schema:
+          id: Allocation
+          properties:
+            id:
+                type: integer
+                description: Identifier of the instance
+            url:
+                type: string
+                description: URL to handle the instance
+            packetTracer:
+                type: string
+                description: Host and port where the Packet Tracer instance can be contacted (through IPC)
+            createdAt:
+                type: string
+                format: date-time
+                description: When was the allocation created?
+            removedAt:
+                type: string
+                format: date-time
+                description: When was the allocation removed/stopped?
+      500:
+        description: The instance could not be allocated, there was an error.
+        schema:
+          id: Error
+          properties:
+            status:
+                type: integer
+                description: HTTP status code.
+            message:
+                type: string
+                description: Description for the error.
+      503:
+        description: At the moment the server cannot allocate more instances.
+        schema:
+            $ref: '#/definitions/Error'
+    """
+    try:
+        result = tasks.allocate_instance.delay()
+	    allocation_id = result.wait()
+	    if allocation_id:
+            allocation = Allocation.get(allocation_id)
+            return jsonify(allocation.serialize("%s/%d" % (request.base_url, allocation.id), get_host()))
+        return unavailable()
+    except Exception as e:
+        return internal_error(e.args[0])
+
+
+@app.route("/allocations/<allocation_id>", endpoint="v1_allocation")
+def show_allocation_details_v1(allocation_id):
+    """
+    Shows the details of a Packet Tracer instance allocation.
+    ---
+    tags:
+      - allocation
+    parameters:
+      - name: allocation_id
+        in: path
+        description: allocation identifier
+        required: true
+        type: integer
+    responses:
+      200:
+        description: Details of the instance allocation.
+        schema:
+            $ref: '#/definitions/Allocation'
+      404:
+        description: There is not an allocation for the given allocation_id.
+        schema:
+            $ref: '#/definitions/Error'
+    """
+    allocation = Allocation.get(allocation_id)
+    if allocation:
+        return jsonify(allocation.serialize(request.base_url, get_host()))
+    return not_found(error="The allocation does not exist.")
+
+
+@app.route("/allocations/<allocation_id>", methods=['DELETE'], endpoint="v1_allocation_delete")
+def deallocate_instance_v1(allocation_id):
+    """
+    Stops a running Packet Tracer instance.
+    ---
+    tags:
+      - allocation
+    parameters:
+      - name: allocation_id
+        in: path
+        description: allocation identifier
+        required: true
+        type: integer
+    responses:
+      200:
+          description: Allocation removed
+          schema:
+              $ref: '#/definitions/Allocation'
+      404:
+          description: There is not an allocation for the given allocation_id.
+          schema:
+              $ref: '#/definitions/Error'
+    """
+    instance = Instance.get_by_allocation_id(allocation_id)
+    if instance is None:
+        return not_found(error="The allocation does not exist.")
+
+    try:
+        allocation_id = instance.allocated_by
+        result = tasks.deallocate_instance.delay(instance.id)
+        result.wait()
+        allocation = Allocation.get(allocation_id)
+        if allocation:
+            # TODO update instance object as status has changed
+            return jsonify(allocation.serialize(request.base_url, get_host()))
+        # else
+        return not_found(error="The allocation does not exist.")
+    except Exception as e:
+        return internal_error(e.args[0])
+
 
 
 def get_json_instances(instances):
@@ -102,7 +273,7 @@ def list_instances_v1():
         type: string
         description: Show different types of instances
         default: running
-        enum: [all, starting, unassigned, assigned, running, finished, error]
+        enum: [all, starting, deallocated, allocated, running, finished, error]
     responses:
       200:
         description: Packet Tracer instances
@@ -124,10 +295,10 @@ def list_instances_v1():
             return get_json_instances(Instance.get_all())  # .limit(10)
         elif show_param == "starting":
             return get_json_instances(Instance.get_starting())
-        elif show_param == "unassigned":
-            return get_json_instances(Instance.get_unassigned())
-        elif show_param == "assigned":
-            return get_json_instances(Instance.get_assigned())
+        elif show_param == "deallocated":
+            return get_json_instances(Instance.get_deallocated())
+        elif show_param == "allocated":
+            return get_json_instances(Instance.get_allocated())
         elif show_param == "error":
 	    return get_json_instances(Instance.get_error())
         else:  # show_param is "finished":
@@ -147,21 +318,9 @@ def assign_instance_v1():
         schema:
           id: Instance
           properties:
-            createdAt:
-                type: string
-                format: date-time
-                description: When was the instance created?
-            removedAt:
-                type: string
-                format: date-time
-                description: When was the instance removed/stopped?
             id:
                 type: integer
                 description: Identifier of the instance
-	    status:
-		type: string
-	        description: Show status of the given instance
-	        enum: [all, starting, unassigned, assigned, running, finished, error]
             dockerId:
                 type: string
                 description: Identifier of the docker container which serves the instance
@@ -174,6 +333,18 @@ def assign_instance_v1():
             vnc:
                 type: string
                 description: VNC URL to access the Packet Tracer instance
+            createdAt:
+                type: string
+                format: date-time
+                description: When was the instance created?
+            removedAt:
+                type: string
+                format: date-time
+                description: When was the instance removed/stopped?
+            status:
+        		type: string
+        	    description: Show status of the given instance
+        	    enum: [all, starting, deallocated, allocated, running, finished, error]
       500:
         description: The container could not be created, there was an error.
         schema:
@@ -191,12 +362,12 @@ def assign_instance_v1():
             $ref: '#/definitions/Error'
     """
     try:
-        result = tasks.assign_container.delay()
-	instance_id = result.wait()
-	if instance_id:
-	    instance = Instance.get(instance_id)
+        result = tasks.create_container()
+        instance_id = result.get()
+	    if instance_id:
+	        instance = Instance.get(instance_id)
             return jsonify(instance.serialize("%s/%d" % (request.base_url, instance.id), get_host()))
-	return unavailable()
+	    return unavailable()
     except Exception as e:
         return internal_error(e.args[0])
 
@@ -231,7 +402,7 @@ def show_instance_details_v1(instance_id):
 
 
 @app.route("/instances/<instance_id>", methods=['DELETE'], endpoint="v1_instance_delete")
-def unassign_instance_v1(instance_id):
+def delete_instance_v1(instance_id):
     """
     Stops a running Packet Tracer instance.
     ---
@@ -258,9 +429,10 @@ def unassign_instance_v1(instance_id):
         return not_found(error="The instance does not exist.")
 
     try:
-        result = tasks.unassign_container.delay(instance_id)
+        result = tasks.remove_container.delay(instance.docker_id)
         result.wait()
-	# TODO update instance object as status has changed
+        instance.delete()
+        # TODO update instance object as status has changed
         return jsonify(instance.serialize(request.base_url, get_host()))
     except Exception as e:
         return internal_error(e.args[0])

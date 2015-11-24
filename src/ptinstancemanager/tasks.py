@@ -16,12 +16,15 @@ logger = logging.getLogger()
 def create_containers(num_containers):
     logger.info('Creating new containers.')
     for _ in range(num_containers):
-        available_port = Port.allocate()
+        create_container()
 
-        if available_port is None:
-            raise Exception('The server cannot create new instances. Please, wait and retry it.')
+def create_container():
+    available_port = Port.allocate()
 
-        res = create_container.apply_async((available_port.number,), link=wait_for_ready_container.s())
+    if available_port is None:
+        raise Exception('The server cannot create new instances. Please, wait and retry it.')
+
+    return create_container.apply_async((available_port.number,), link=wait_for_ready_container.s())
 
 
 @celery.task()
@@ -71,17 +74,16 @@ def start_container(pt_port, vnc_port):
 
 
 @celery.task()
-def assign_container():
-    """Unpauses available container and marks associated instance as assigned."""
-    logger.info('Assigning instance.')
+def allocate_instance():
+    """Unpauses available container and marks associated instance as allocated."""
+    logger.info('Allocating instance.')
     docker = Client(app.config['DOCKER_URL'], version='auto')
-    for instance in Instance.get_unassigned():
+    for instance in Instance.get_deallocated():
     	try:
     	    docker.unpause(instance.docker_id)
-    	    instance.assign()
-            return instance.id
+            return instance.allocate().id
         except APIError as ae:
-            logger.error('Error assigning instance %s.' % instance.id)
+            logger.error('Error allocating instance %s.' % instance.id)
             logger.error('Docker API exception. %s.' % ae)
     	    # e.g., if it was already unpaused or it has been stopped
     	    instance.mark_error()
@@ -89,16 +91,16 @@ def assign_container():
 
 
 @celery.task()
-def unassign_container(instance_id):
-    """Marks instance as unassigned and pauses the associated container."""
-    logger.info('Unassigning instance %s.' % instance_id)
+def deallocate_instance(instance_id):
+    """Marks instance as deallocated and pauses the associated container."""
+    logger.info('Deallocating instance %s.' % instance_id)
     instance = Instance.get(instance_id)
-    docker = Client(app.config['DOCKER_URL'], version='auto')
     try:
+        docker = Client(app.config['DOCKER_URL'], version='auto')
         docker.pause(instance.docker_id)
-        instance.unassign()
+        instance.deallocate()
     except APIError as ae:
-        logger.error('Error unassigning instance %s.' % instance_id)
+        logger.error('Error deallocating instance %s.' % instance_id)
         logger.error('Docker API exception. %s.' % ae)
     	# e.g., if it was already paused
     	instance.mark_error()
@@ -113,7 +115,9 @@ def wait_for_ready_container(instance_id, timeout=30):
     instance = Instance.get(instance_id)
     is_running = ptchecker.is_running(app.config['PT_CHECKER'], 'localhost', instance.pt_port, float(timeout))
     if is_running:
-        unassign_container.s(instance_id).delay()  # else
+        instance.mark_ready()
+        deallocate_instance.s(instance_id).delay()  # else
+        return instance_id
     else:
         instance.mark_error()
         monitor_containers.s().delay()
@@ -145,7 +149,7 @@ def monitor_containers():
                         docker.start(container=container_id)
                         wait_for_ready_container.s(instance.id).delay()
 
-        for erroneous_instance in Instance.get_errors():
+        for erroneous_instance in Instance.get_erroneous():
             if not erroneous_instance.docker_id in restarted_instances:
                 logger.info('Deleting erroneous %s.' % instance)
                 instance.delete()
