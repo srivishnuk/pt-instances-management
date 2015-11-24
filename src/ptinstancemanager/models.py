@@ -15,9 +15,6 @@ class Allocation(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.now)
     deleted_at = db.Column(db.DateTime)
 
-    def __init__(self, instance_id):
-        self.using_instance = instance_id
-
     def __repr__(self):
         return '<Allocation %r>' % self.id
 
@@ -29,7 +26,6 @@ class Allocation(db.Model):
 
     def delete(self):
         self.deleted_at = datetime.now()  # set deletion time
-        self.using_instance = Allocation.NONE
         db.session.commit()
 
     def serialize(self, url, local_machine):
