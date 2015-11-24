@@ -13,22 +13,22 @@ from ptinstancemanager.models import Instance, Port, CachedFile
 logger = logging.getLogger()
 
 
-def create_containers(num_containers):
+def create_instances(num_containers):
     logger.info('Creating new containers.')
     for _ in range(num_containers):
-        create_container()
+        create_instance()
 
-def create_container():
+def create_instance():
     available_port = Port.allocate()
 
     if available_port is None:
         raise Exception('The server cannot create new instances. Please, wait and retry it.')
 
-    return create_container.apply_async((available_port.number,), link=wait_for_ready_container.s())
+    return create_instance_with_port.apply_async((available_port.number,), link=wait_for_ready_container.s())
 
 
 @celery.task()
-def create_container(pt_port):
+def create_instance_with_port(pt_port):
     """Runs a new packettracer container in the specified port and
         create associated instance."""
     logger.info('Creating new container.')

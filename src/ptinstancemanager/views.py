@@ -362,7 +362,7 @@ def assign_instance_v1():
                 $ref: '#/definitions/Error'
     """
     try:
-        result = tasks.create_container()
+        result = tasks.create_instance()
         instance_id = result.get()
         if instance_id:
             instance = Instance.get(instance_id)

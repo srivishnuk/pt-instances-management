@@ -20,8 +20,8 @@ def entry_point():
 	args = parser.parse_args()
 
 	configuration.set_file_path(args.config)
-	from ptinstancemanager.tasks import create_containers
-	create_containers(args.number)
+	from ptinstancemanager.tasks import create_instances
+	create_instances(args.number)
 
 
 if __name__ == "__main__":
