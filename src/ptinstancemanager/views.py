@@ -342,9 +342,9 @@ def assign_instance_v1():
                         format: date-time
                         description: When was the instance removed/stopped?
                     status:
-                		type: string
+                        type: string
                         enum: [all, starting, deallocated, allocated, running, finished, error]
-                	    description: Show status of the given instance
+                        description: Show status of the given instance
         500:
             description: The container could not be created, there was an error.
             schema:
