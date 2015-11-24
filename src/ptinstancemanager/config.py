@@ -12,10 +12,10 @@ class ConfigFileReader(object):
 
     def __init__(self):
         self.config = ConfigParser.RawConfigParser()
-	self.set_file_path(os.environ.get('PTINSTANCEMNGR'))
+        self.set_file_path(os.environ.get('PTINSTANCEMNGR'))
 
     def set_file_path(self, file_path):
-	if file_path:  # Ignore if it is None
+        if file_path:  # Ignore if it is None
             self.config.read(file_path)
 
     def get_log(self):

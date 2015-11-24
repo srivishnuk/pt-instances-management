@@ -19,10 +19,9 @@ def entry_point():
 	                    help='Number of containers to create.')
 	args = parser.parse_args()
 
-        configuration.set_file_path(args.config)
-        from ptinstancemanager.tasks import create_containers
+	configuration.set_file_path(args.config)
+	from ptinstancemanager.tasks import create_containers
 	create_containers(args.number)
-
 
 
 if __name__ == "__main__":

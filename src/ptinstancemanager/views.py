@@ -175,8 +175,8 @@ def allocate_instance_v1():
     """
     try:
         result = tasks.allocate_instance.delay()
-	    allocation_id = result.wait()
-	    if allocation_id:
+        allocation_id = result.wait()
+        if allocation_id:
             allocation = Allocation.get(allocation_id)
             return jsonify(allocation.serialize("%s/%d" % (request.base_url, allocation.id), get_host()))
         return unavailable()
@@ -300,7 +300,7 @@ def list_instances_v1():
         elif show_param == "allocated":
             return get_json_instances(Instance.get_allocated())
         elif show_param == "error":
-	    return get_json_instances(Instance.get_error())
+            return get_json_instances(Instance.get_error())
         else:  # show_param is "finished":
             return get_json_instances(Instance.get_finished())
 
@@ -364,10 +364,10 @@ def assign_instance_v1():
     try:
         result = tasks.create_container()
         instance_id = result.get()
-	    if instance_id:
-	        instance = Instance.get(instance_id)
+        if instance_id:
+            instance = Instance.get(instance_id)
             return jsonify(instance.serialize("%s/%d" % (request.base_url, instance.id), get_host()))
-	    return unavailable()
+        return unavailable()
     except Exception as e:
         return internal_error(e.args[0])
 

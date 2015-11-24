@@ -79,14 +79,14 @@ def allocate_instance():
     logger.info('Allocating instance.')
     docker = Client(app.config['DOCKER_URL'], version='auto')
     for instance in Instance.get_deallocated():
-    	try:
-    	    docker.unpause(instance.docker_id)
+        try:
+            docker.unpause(instance.docker_id)
             return instance.allocate().id
         except APIError as ae:
             logger.error('Error allocating instance %s.' % instance.id)
             logger.error('Docker API exception. %s.' % ae)
-    	    # e.g., if it was already unpaused or it has been stopped
-    	    instance.mark_error()
+            # e.g., if it was already unpaused or it has been stopped
+            instance.mark_error()
             monitor_containers.s().delay()
 
 
@@ -102,8 +102,8 @@ def deallocate_instance(instance_id):
     except APIError as ae:
         logger.error('Error deallocating instance %s.' % instance_id)
         logger.error('Docker API exception. %s.' % ae)
-    	# e.g., if it was already paused
-    	instance.mark_error()
+        # e.g., if it was already paused
+        instance.mark_error()
         monitor_containers.s().delay()
 
 
@@ -134,7 +134,7 @@ def monitor_containers():
         # 'exited': 0 throws exception, 'exited': '0' does not work.
         # Because of this I have felt forced to use regular expressions :-(
         pattern = re.compile(r"Exited [(](\d+)[)]")
-    	for container in docker.containers(filters={'status': 'exited'}):
+        for container in docker.containers(filters={'status': 'exited'}):
             # Ignore containers not created from image 'packettracer'
             if container.get('Image')=='packettracer':
                 match = pattern.match(container.get('Status'))
@@ -153,7 +153,7 @@ def monitor_containers():
             if not erroneous_instance.docker_id in restarted_instances:
                 logger.info('Deleting erroneous %s.' % instance)
                 instance.delete()
-            	Port.get(instance.pt_port).release()
+                Port.get(instance.pt_port).release()
                 # Very conservative approach:
                 #   we remove it even if it might still be usable.
                 remove_container.s(erroneous_instance.docker_id).delay()
