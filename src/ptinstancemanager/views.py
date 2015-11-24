@@ -109,7 +109,7 @@ def list_allocations_v1():
         description: Allocations of Packet Tracer instances
         schema:
             properties:
-                instances:
+                allocations:
                     type: array
                     items:
                       $ref: '#/definitions/Allocation'
@@ -133,45 +133,45 @@ def allocate_instance_v1():
     Allocates a Packet Tracer instance.
     ---
     tags:
-      - allocation
+        - allocation
     responses:
-      201:
-        description: Packet Tracer instance allocated (i.e., allocation created)
-        schema:
-          id: Allocation
-          properties:
-            id:
-                type: integer
-                description: Identifier of the instance
-            url:
-                type: string
-                description: URL to handle the instance
-            packetTracer:
-                type: string
-                description: Host and port where the Packet Tracer instance can be contacted (through IPC)
-            createdAt:
-                type: string
-                format: date-time
-                description: When was the allocation created?
-            removedAt:
-                type: string
-                format: date-time
-                description: When was the allocation removed/stopped?
-      500:
-        description: The instance could not be allocated, there was an error.
-        schema:
-          id: Error
-          properties:
-            status:
-                type: integer
-                description: HTTP status code.
-            message:
-                type: string
-                description: Description for the error.
-      503:
-        description: At the moment the server cannot allocate more instances.
-        schema:
-            $ref: '#/definitions/Error'
+        201:
+            description: Packet Tracer instance allocated (i.e., allocation created)
+            schema:
+                id: Allocation
+                properties:
+                    id:
+                        type: integer
+                        description: Identifier of the allocation
+                    url:
+                        type: string
+                        description: URL to handle the allocation
+                    packetTracer:
+                        type: string
+                        description: Host and port where the Packet Tracer instance can be contacted (through IPC)
+                    createdAt:
+                        type: string
+                        format: date-time
+                        description: When was the allocation created?
+                    removedAt:
+                        type: string
+                        format: date-time
+                        description: When was the allocation removed/stopped?
+        500:
+            description: The instance could not be allocated, there was an error.
+            schema:
+                id: Error
+                properties:
+                    status:
+                        type: integer
+                        description: HTTP status code.
+                    message:
+                        type: string
+                        description: Description for the error.
+        503:
+            description: At the moment the server cannot allocate more instances.
+            schema:
+                $ref: '#/definitions/Error'
     """
     try:
         result = tasks.allocate_instance.delay()
@@ -194,9 +194,9 @@ def show_allocation_details_v1(allocation_id):
     parameters:
       - name: allocation_id
         in: path
+        type: integer
         description: allocation identifier
         required: true
-        type: integer
     responses:
       200:
         description: Details of the instance allocation.
@@ -223,9 +223,9 @@ def deallocate_instance_v1(allocation_id):
     parameters:
       - name: allocation_id
         in: path
+        type: integer
         description: allocation identifier
         required: true
-        type: integer
     responses:
       200:
           description: Allocation removed
@@ -382,9 +382,9 @@ def show_instance_details_v1(instance_id):
     parameters:
       - name: instance_id
         in: path
+        type: integer
         description: instance identifier
         required: true
-        type: integer
     responses:
       200:
         description: Details of the instance
