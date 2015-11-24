@@ -311,55 +311,55 @@ def assign_instance_v1():
     Creates a new Packet Tracer instance.
     ---
     tags:
-      - instance
+        - instance
     responses:
-      201:
-        description: Packet Tracer instance created
-        schema:
-          id: Instance
-          properties:
-            id:
-                type: integer
-                description: Identifier of the instance
-            dockerId:
-                type: string
-                description: Identifier of the docker container which serves the instance
-            url:
-                type: string
-                description: URL to handle the instance
-            packetTracer:
-                type: string
-                description: Host and port where the Packet Tracer instance can be contacted (through IPC)
-            vnc:
-                type: string
-                description: VNC URL to access the Packet Tracer instance
-            createdAt:
-                type: string
-                format: date-time
-                description: When was the instance created?
-            removedAt:
-                type: string
-                format: date-time
-                description: When was the instance removed/stopped?
-            status:
-        		type: string
-        	    description: Show status of the given instance
-        	    enum: [all, starting, deallocated, allocated, running, finished, error]
-      500:
-        description: The container could not be created, there was an error.
-        schema:
-          id: Error
-          properties:
-            status:
-                type: integer
-                description: HTTP status code.
-            message:
-                type: string
-                description: Description for the error.
-      503:
-        description: At the moment the server cannot create more instances.
-        schema:
-            $ref: '#/definitions/Error'
+        201:
+            description: Packet Tracer instance created
+            schema:
+                id: Instance
+                properties:
+                    id:
+                        type: integer
+                        description: Identifier of the instance
+                    dockerId:
+                        type: string
+                        description: Identifier of the docker container which serves the instance
+                    url:
+                        type: string
+                        description: URL to handle the instance
+                    packetTracer:
+                        type: string
+                        description: Host and port where the Packet Tracer instance can be contacted (through IPC)
+                    vnc:
+                        type: string
+                        description: VNC URL to access the Packet Tracer instance
+                    createdAt:
+                        type: string
+                        format: date-time
+                        description: When was the instance created?
+                    removedAt:
+                        type: string
+                        format: date-time
+                        description: When was the instance removed/stopped?
+                    status:
+                		type: string
+                        enum: [all, starting, deallocated, allocated, running, finished, error]
+                	    description: Show status of the given instance
+        500:
+            description: The container could not be created, there was an error.
+            schema:
+                id: Error
+                properties:
+                    status:
+                        type: integer
+                        description: HTTP status code.
+                    message:
+                        type: string
+                        description: Description for the error.
+        503:
+            description: At the moment the server cannot create more instances.
+            schema:
+                $ref: '#/definitions/Error'
     """
     try:
         result = tasks.create_container()
