@@ -39,7 +39,7 @@ def create_instances(num_containers):
     for _ in range(num_containers):
         create_instance()
 
-@cancellable
+@cancellable()
 def create_instance():
     available_port = Port.allocate()
 
