@@ -15,17 +15,19 @@ logger = logging.getLogger()
 
 
 def cancellable(func):
-    def has_enough_resources(*args, **kwargs):
+    def has_enough_resources(check=('cpu', 'memory'), *args, **kwargs):
         """Has the machine reached the CPU consumption threshold?"""
-        max_cpu = app.config['MAXIMUM_CPU']
-        current = psutil.cpu_percent(interval=1)  #  It blocks it for a second
-        if current >= max_cpu:
-            raise Exception('Operation cancelled: not enough CPU. Currently using: %.2f%%.' % current)
+        if 'cpu' in check:
+            max_cpu = app.config['MAXIMUM_CPU']
+            current = psutil.cpu_percent(interval=1)  #  It blocks it for a second
+            if current >= max_cpu:
+                raise Exception('Operation cancelled: not enough CPU. Currently using: %.2f%%.' % current)
 
-        max_memory = app.config['MAXIMUM_MEMORY']
-        current = psutil.virtual_memory().percent
-        if current >= max_memory:
-            raise Exception('Operation cancelled: not enough Memory. Currently using: %.2f%%.' % current)
+        if 'memory' in check:
+            max_memory = app.config['MAXIMUM_MEMORY']
+            current = psutil.virtual_memory().percent
+            if current >= max_memory:
+                raise Exception('Operation cancelled: not enough Memory. Currently using: %.2f%%.' % current)
 
         logger.info('All the thresholds were passed.')
         return func(*args, **kwargs)
@@ -94,7 +96,7 @@ def start_container(pt_port, vnc_port):
 
 
 @celery.task()
-@cancellable
+@cancellable(check=('cpu',))  # Check only the CPU threshold
 def allocate_instance():
     """Unpauses available container and marks associated instance as allocated."""
     logger.info('Allocating instance.')
