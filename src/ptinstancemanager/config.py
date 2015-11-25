@@ -45,12 +45,6 @@ class ConfigFileReader(object):
     def get_jar_path(self):
         return self.config.get('PTChecker', 'jar_path')
 
-    def get_lowest_port(self):
-        return int(self.config.get('Port', 'lowest'))
-
-    def get_highest_port(self):
-        return int(self.config.get('Port', 'highest'))
-
     def get_cache_directory(self):
         ret = self.config.get('CachedFiles', 'cache_dir')
         return ret if ret.endswith('/') else ret + '/'
@@ -58,6 +52,15 @@ class ConfigFileReader(object):
     def get_container_directory(self):
         ret = self.config.get('CachedFiles', 'container_dir')
         return ret if ret.endswith('/') else ret + '/'
+
+    def get_maximum_cpu(self):
+        return float(self.config.get('Thresholds', 'cpu'))
+
+    def get_lowest_port(self):
+        return int(self.config.get('Thresholds', 'lowest_port'))
+
+    def get_highest_port(self):
+        return int(self.config.get('Thresholds', 'highest_port'))
 
 
 configuration = ConfigFileReader()

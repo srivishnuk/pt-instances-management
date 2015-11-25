@@ -64,21 +64,26 @@ def get_configuration_details():
     Get API capabilities.
     ---
     tags:
-      - details
+        - details
     responses:
-      200:
-        description: A single user item
-        schema:
-          id: Details
-          properties:
-            lowest_port:
-                type: integer
-                description: minimum port for newly created instances
-            highest_port:
-                type: integer
-                description: maximum port for newly created instances
+        200:
+            description: A single user item
+            schema:
+                id: Details
+                properties:
+                    maximum_cpu:
+                        type: integer
+                        format: float
+                        description: Threshold of CPU usage percentage
+                    lowest_port:
+                        type: integer
+                        description: minimum port for newly created instances
+                    highest_port:
+                        type: integer
+                        description: maximum port for newly created instances
     """
-    return jsonify( lowest_port=app.config['LOWEST_PORT'],
+    return jsonify( maximum_cpu=app.config['MAXIMUM_CPU'],
+                    lowest_port=app.config['LOWEST_PORT'],
                     highest_port=app.config['HIGHEST_PORT'] )
 
 
