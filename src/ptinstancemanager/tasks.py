@@ -1,4 +1,5 @@
 import re
+import psutil
 import logging
 from docker import Client
 from docker.errors import APIError
@@ -13,11 +14,24 @@ from ptinstancemanager.models import Instance, Port, CachedFile
 logger = logging.getLogger()
 
 
+def cancellable(func):
+    def has_enough_cpu(*args, **kwargs):
+        """Has the machine reached the CPU consumption threshold?"""
+        max_limit = app.config['MAXIMUM_CPU']
+        current = psutil.cpu_percent(interval=1)  #  It blocks it for a second
+        if current >= max_limit:
+            raise Exception('Operation cancelled: not enough CPU. Currently using: %.2f%%.' % current)
+        logger.info('Thresholds passed.')
+        return func(*args, **kwargs)
+    return has_enough_cpu
+
+
 def create_instances(num_containers):
     logger.info('Creating new containers.')
     for _ in range(num_containers):
         create_instance()
 
+@cancellable
 def create_instance():
     available_port = Port.allocate()
 
@@ -74,6 +88,7 @@ def start_container(pt_port, vnc_port):
 
 
 @celery.task()
+@cancellable
 def allocate_instance():
     """Unpauses available container and marks associated instance as allocated."""
     logger.info('Allocating instance.')

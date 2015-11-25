@@ -26,13 +26,14 @@ setup(name="ptinstancemanager",
       },
       packages=["ptinstancemanager"],
       install_requires=[
-        "docker-py",
-	"Flask-SQLAlchemy",
-	"jsonschema<=2.4.0",
-	"flasgger",
-	"celery",
-	"redis",
-	"ptchecker"
+            "docker-py",
+            "Flask-SQLAlchemy",
+            "jsonschema<=2.4.0",
+            "flasgger",
+            "celery",
+            "redis",
+            "ptchecker",
+            "psutil"
       ],
       dependency_links=[
       	'git+https://github.com/PTAnywhere/pt-checker.git#egg=ptchecker-0.1'
