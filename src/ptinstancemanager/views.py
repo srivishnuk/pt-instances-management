@@ -153,7 +153,7 @@ def allocate_instance_v1():
                         type: string
                         format: date-time
                         description: When was the allocation created?
-                    removedAt:
+                    deletedAt:
                         type: string
                         format: date-time
                         description: When was the allocation removed/stopped?
@@ -337,7 +337,7 @@ def assign_instance_v1():
                         type: string
                         format: date-time
                         description: When was the instance created?
-                    removedAt:
+                    deletedAt:
                         type: string
                         format: date-time
                         description: When was the instance removed/stopped?
