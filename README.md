@@ -3,6 +3,13 @@
 Web application which handles local PacketTracer instances using Docker.
 
 
+Prerequisites
+------------
+
+This application currently uses [psutil](https://pythonhosted.org/psutil/).
+As a side effect, you need to consider its [installation requirements](https://github.com/giampaolo/psutil/blob/master/INSTALL.rst) (which change from one system to another).
+
+
 Installation
 ------------
 
