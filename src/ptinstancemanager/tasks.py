@@ -14,8 +14,8 @@ from ptinstancemanager.models import Instance, Port, CachedFile
 logger = logging.getLogger()
 
 
-def cancellable(func):
-    def has_enough_resources(check=('cpu', 'memory'), *args, **kwargs):
+def cancellable(check=('cpu', 'memory')):
+    def has_enough_resources(func, *args, **kwargs):
         """Has the machine reached the CPU consumption threshold?"""
         if 'cpu' in check:
             max_cpu = app.config['MAXIMUM_CPU']
