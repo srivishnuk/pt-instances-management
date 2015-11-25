@@ -15,15 +15,21 @@ logger = logging.getLogger()
 
 
 def cancellable(func):
-    def has_enough_cpu(*args, **kwargs):
+    def has_enough_resources(*args, **kwargs):
         """Has the machine reached the CPU consumption threshold?"""
-        max_limit = app.config['MAXIMUM_CPU']
+        max_cpu = app.config['MAXIMUM_CPU']
         current = psutil.cpu_percent(interval=1)  #  It blocks it for a second
-        if current >= max_limit:
+        if current >= max_cpu:
             raise Exception('Operation cancelled: not enough CPU. Currently using: %.2f%%.' % current)
-        logger.info('Thresholds passed.')
+
+        max_memory = app.config['MAXIMUM_MEMORY']
+        current = psutil.virtual_memory().percent
+        if current >= max_memory:
+            raise Exception('Operation cancelled: not enough Memory. Currently using: %.2f%%.' % current)
+
+        logger.info('All the thresholds were passed.')
         return func(*args, **kwargs)
-    return has_enough_cpu
+    return has_enough_resources
 
 
 def create_instances(num_containers):
