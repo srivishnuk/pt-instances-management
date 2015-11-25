@@ -56,6 +56,9 @@ class ConfigFileReader(object):
     def get_maximum_cpu(self):
         return float(self.config.get('Thresholds', 'cpu'))
 
+    def get_maximum_memory(self):
+        return float(self.config.get('Thresholds', 'memory'))
+
     def get_lowest_port(self):
         return int(self.config.get('Thresholds', 'lowest_port'))
 

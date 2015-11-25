@@ -75,6 +75,10 @@ def get_configuration_details():
                         type: integer
                         format: float
                         description: Threshold of CPU usage percentage
+                    maximum_memory:
+                        type: integer
+                        format: float
+                        description: Threshold of memory usage percentage
                     lowest_port:
                         type: integer
                         description: minimum port for newly created instances
@@ -83,6 +87,7 @@ def get_configuration_details():
                         description: maximum port for newly created instances
     """
     return jsonify( maximum_cpu=app.config['MAXIMUM_CPU'],
+                    maximum_memory=app.config['MAXIMUM_MEMORY'],
                     lowest_port=app.config['LOWEST_PORT'],
                     highest_port=app.config['HIGHEST_PORT'] )
 
