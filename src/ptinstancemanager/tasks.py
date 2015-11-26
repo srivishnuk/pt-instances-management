@@ -4,6 +4,7 @@ import logging
 from docker import Client
 from docker.errors import APIError
 from celery import chain
+from celery.exceptions import MaxRetriesExceededError
 
 import ptchecker
 from ptinstancemanager.app import app, celery
@@ -132,8 +133,13 @@ def deallocate_instance(instance_id):
         monitor_containers.s().delay()
 
 
-@celery.task(max_retries=5)
-def wait_for_ready_container(instance_id, timeout=30):
+# Worst case tested scenario has been 15 seconds,
+# so if in 38 seconds (4*2 + 3*10) it has not answered,
+# we can consider the container erroneous.
+@celery.task(max_retries=3, default_retry_delay=10)
+# Once it is ready, the container uses to answer in less than 200 ms.
+# Therefore a timeout of 2 seconds should be enough to know whether it is ready.
+def wait_for_ready_container(instance_id, timeout=2):
     """Waits for an instance to be ready (e.g., answer).
         Otherwise, marks it as erroneous ."""
     logger.info('Waiting for container to be ready.')
@@ -141,12 +147,14 @@ def wait_for_ready_container(instance_id, timeout=30):
     is_running = ptchecker.is_running(app.config['PT_CHECKER'], 'localhost', instance.pt_port, float(timeout))
     if is_running:
         instance.mark_ready()
-        deallocate_instance.s(instance_id).delay()  # else
-        return instance_id
+        deallocate_instance.s(instance_id).delay()
     else:
-        instance.mark_error()
-        monitor_containers.s().delay()
-	    # raise wait_for_ready_container.retry(exc=Exception('The container has not answered yet.'))
+        try:
+            raise wait_for_ready_container.retry()
+        except MaxRetriesExceededError:
+            instance.mark_error()
+            monitor_containers.s().delay()
+    return instance_id
 
 
 @celery.task()
@@ -175,7 +183,6 @@ def monitor_containers():
                         wait_for_ready_container.s(instance.id).delay()
 
         for erroneous_instance in Instance.get_erroneous():
-            logger.info('Handling erroneous instance %s.' % erroneous_instance)
             if erroneous_instance.id not in restarted_instances:
                 logger.info('Deleting erroneous %s.' % erroneous_instance)
                 erroneous_instance.delete()
