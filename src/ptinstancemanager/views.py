@@ -298,8 +298,13 @@ def list_instances_v1():
     if show_param is None or show_param == "running":  # default option
         return get_json_instances(Instance.get_running())
     else:
-        if show_param not in ("all", "starting", "unassigned", "assigned", "finished"):
-            return BadRequest("The 'show' parameter must contain one of the following values: all, running or finished.")
+        states = ("all", "starting", "deallocated", "allocated", "running", "finished", "error")
+        if show_param not in states:
+            state_enum = "["
+            for s in states:
+                state_enum += "%s, " % s
+            state_enum = state_enum[:-2] + "]"
+            return BadRequest("The 'show' parameter must contain one of the following values: %s." % state_enum)
 
         if show_param == "all":
             return get_json_instances(Instance.get_all())  # .limit(10)
