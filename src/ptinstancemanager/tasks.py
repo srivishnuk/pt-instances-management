@@ -147,7 +147,10 @@ def wait_for_ready_container(instance_id, timeout=2):
     is_running = ptchecker.is_running(app.config['PT_CHECKER'], 'localhost', instance.pt_port, float(timeout))
     if is_running:
         instance.mark_ready()
-        deallocate_instance.s(instance_id).delay()
+        if not instance.is_allocated():
+            # TODO rename the following task as it sounds confusing.
+            # We call it here to pause the instance, not to "deallocate it".
+            deallocate_instance.s(instance_id).delay()
     else:
         try:
             raise wait_for_ready_container.retry()
