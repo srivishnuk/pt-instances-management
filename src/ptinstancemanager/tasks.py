@@ -40,36 +40,38 @@ def cancellable(check=('cpu', 'memory')):
 def create_instances(num_containers):
     logger.info('Creating new containers.')
     for _ in range(num_containers):
-        create_instance()
+        create_instance.apply_async(
+            link=wait_for_ready_container.s()
+        )
 
-@cancellable()
-def create_instance():
+
+def allocate_port():
     available_port = Port.allocate()
-
     if available_port is None:
         raise Exception('The server cannot create new instances. Please, wait and retry it.')
-
-    return create_instance_with_port.apply_async((available_port.number,), link=wait_for_ready_container.s())
+    return available_port
 
 
 @celery.task()
-def create_instance_with_port(pt_port):
+def create_instance():
     """Runs a new packettracer container in the specified port and
         create associated instance."""
     logger.info('Creating new container.')
+    pt_port = allocate_port()
+    vnc_port_number = pt_port.number + 10000
+    try:
+        container_id = start_container(pt_port.number, vnc_port_number)
 
-    # Create container with Docker
-    vnc_port = pt_port + 10000
-    container_id = start_container(pt_port, vnc_port)
+        # If success...
+        instance = Instance.create(container_id, pt_port.number, vnc_port_number)
+        pt_port.assign(instance.id)
 
-    # If success...
-    instance = Instance.create(container_id, pt_port, vnc_port)
-    port = Port.get(pt_port)
-    port.assign(instance.id)
+        logger.info('Container started: %s' % container_id)
 
-    logger.info('Container started: %s' % container_id)
-
-    return instance.id
+        return instance.id
+    except Exception as e:
+        pt_port.release()
+        raise e
 
 
 #@celery.task()
@@ -104,16 +106,31 @@ def allocate_instance():
     """Unpauses available container and marks associated instance as allocated."""
     logger.info('Allocating instance.')
     docker = Client(app.config['DOCKER_URL'], version='auto')
+
+    error_discovered = False
+    allocation_id = None
     for instance in Instance.get_deallocated():
         try:
             docker.unpause(instance.docker_id)
-            return instance.allocate().id
+            allocation_id = instance.allocate().id
+            break
         except APIError as ae:
             logger.error('Error allocating instance %s.' % instance.id)
             logger.error('Docker API exception. %s.' % ae)
             # e.g., if it was already unpaused or it has been stopped
             instance.mark_error()
-            monitor_containers.s().delay()
+            error_discovered = True
+
+    if not allocation_id:
+        # If there were no instances available, consider the creation of a new one
+        instance_id = create_instance.s()()  # Execute task inline
+        allocation_id = Instance.get(instance_id).allocate().id
+        wait_for_ready_container.s(instance_id).delay()
+
+    if error_discovered:  # Launch it only once after doing the rest
+        monitor_containers.s().delay()
+
+    return allocation_id
 
 
 @celery.task()
