@@ -132,6 +132,7 @@ class Instance(db.Model):
         self.deallocate()
         self.deleted_at = datetime.now()  # set deletion time
         db.session.commit()
+        Port.get(self.pt_port).release()
 
     def get_id(self):
         return self.id
@@ -227,7 +228,7 @@ class Port(db.Model):
         return 'Port-%r' % self.number
 
     def __set_used_by(self, instance_id=None):
-        self.instance_id = Port.UNASSIGNED if instance_id is None else instance_id
+        self.instance_id = instance_id if instance_id else Port.UNASSIGNED
 
     def assign(self, assigned_instance_id):
         assert assigned_instance_id not in (None, Port.UNASSIGNED, Port.ALLOCATED)
