@@ -247,7 +247,7 @@ def deallocate_instance_v1(allocation_id):
               $ref: '#/definitions/Error'
     """
     instance = Instance.get_by_allocation_id(allocation_id)
-    if instance is None:
+    if not instance:
         return not_found(error="The allocation does not exist.")
 
     try:
@@ -440,7 +440,7 @@ def delete_instance_v1(instance_id):
               $ref: '#/definitions/Error'
     """
     instance = Instance.get(instance_id)
-    if instance is None:
+    if not instance or not instance.is_active():
         return not_found(error="The instance does not exist.")
 
     try:
