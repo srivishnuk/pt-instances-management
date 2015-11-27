@@ -185,7 +185,7 @@ def allocate_instance_v1():
     """
     try:
         result = tasks.allocate_instance.delay()
-        allocation_id = result.wait()
+        allocation_id = result.get()
         if allocation_id:
             allocation = Allocation.get(allocation_id)
             return jsonify(allocation.serialize("%s/%d" % (request.base_url, allocation.id), get_host()))
@@ -253,7 +253,7 @@ def deallocate_instance_v1(allocation_id):
     try:
         allocation_id = instance.allocated_by
         result = tasks.deallocate_instance.delay(instance.id)
-        result.wait()
+        result.get()
         allocation = Allocation.get(allocation_id)
         if allocation:
             # TODO update instance object as status has changed
@@ -445,7 +445,7 @@ def delete_instance_v1(instance_id):
 
     try:
         result = tasks.remove_container.delay(instance.docker_id)
-        result.wait()
+        result.get()
         instance.delete()
         # TODO update instance object as status has changed
         return jsonify(instance.serialize(request.base_url, get_host()))
