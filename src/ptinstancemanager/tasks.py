@@ -186,7 +186,6 @@ def monitor_containers():
             if erroneous_instance.id not in restarted_instances:
                 logger.info('Deleting erroneous %s.' % erroneous_instance)
                 erroneous_instance.delete()
-                Port.get(erroneous_instance.pt_port).release()
                 # Very conservative approach:
                 #   we remove it even if it might still be usable.
                 remove_container.s(erroneous_instance.docker_id).delay()
