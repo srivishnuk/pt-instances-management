@@ -40,9 +40,7 @@ def cancellable(check=('cpu', 'memory')):
 def create_instances(num_containers):
     logger.info('Creating new containers.')
     for _ in range(num_containers):
-        create_instance.apply_async(
-            link=wait_for_ready_container.s()
-        )
+        create_instance.delay()
 
 
 def allocate_port():
@@ -68,6 +66,7 @@ def create_instance():
 
         logger.info('Container started: %s' % container_id)
 
+        wait_for_ready_container.s(instance.id).delay()
         return instance.id
     except Exception as e:
         pt_port.release()

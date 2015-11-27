@@ -377,7 +377,7 @@ def assign_instance_v1():
                 $ref: '#/definitions/Error'
     """
     try:
-        result = tasks.create_instance()
+        result = tasks.create_instance.delay()
         instance_id = result.get()
         if instance_id:
             instance = Instance.get(instance_id)
