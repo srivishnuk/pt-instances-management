@@ -40,7 +40,7 @@ class Allocation(db.Model):
             'url': url,
             'packetTracer': pt_value,
             'createdAt': self.created_at.isoformat(),
-            'removedAt': self.deleted_at.isoformat() if self.deleted_at else None
+            'deletedAt': self.deleted_at.isoformat() if self.deleted_at else None
         }
 
     @staticmethod
@@ -157,7 +157,7 @@ class Instance(db.Model):
             'packetTracer': "%s:%d" % (local_machine, self.pt_port),
             'vnc': "vnc://%s:%d" % (local_machine, self.vnc_port),
             'createdAt': self.created_at.isoformat(),
-            'removedAt': self.deleted_at.isoformat() if self.deleted_at else None,
+            'deletedAt': self.deleted_at.isoformat() if self.deleted_at else None,
             'status': self.get_status()
        }
 
