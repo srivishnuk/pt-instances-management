@@ -202,7 +202,11 @@ class Instance(db.Model):
 
     @staticmethod
     def get_deallocated():
-        return db.session.query(Instance).filter_by(deleted_at = None, allocated_by = Instance.NONE)
+        return db.session.query(Instance).\
+                filter(Instance.deleted_at == None).\
+                filter(Instance.allocated_by == Instance.NONE).\
+                filter(Instance.status != Instance.ERROR).\
+                order_by( Instance.status.desc() )  # First READY, then STARTING
 
     @staticmethod
     def get_allocated():
