@@ -639,8 +639,15 @@ def cache_file():
         description: The URL could not be accessed. It might not exist.
         schema:
             $ref: '#/definitions/Error'
+      500:
+        description: The body of the request was incorrect. Please provide a valid file URL.
+        schema:
+            $ref: '#/definitions/Error'
     """
     file_url = request.data
+    if not file_url:
+        return internal_error('Empty body.')
+
     cached_file = get_and_update_cached_file(file_url)
     if cached_file:
         return  jsonify(cached_file.serialize(app.config['CACHE_CONTAINER_DIR']))
@@ -651,6 +658,9 @@ def cache_file():
             f.write(urllib2.urlopen(file_url).read())
     except IOError:
         return bad_request(error="The URL passed could not be reached. Is '%s' correct?" % file_url)
+    except ValueError:
+        return internal_error('Invalid URL passed in the body.')
+
     new_cached = CachedFile.create(file_url, filename)
     return jsonify(new_cached.serialize(app.config['CACHE_CONTAINER_DIR']))
 
