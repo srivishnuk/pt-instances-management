@@ -12,7 +12,7 @@ import urllib2
 import logging
 from urlparse import urlparse
 from flask import redirect, request, render_template, url_for, jsonify
-from celery.exceptions import TimeoutError
+from celery.exceptions import TimeoutError, TaskRevokedError
 from werkzeug.exceptions import BadRequest
 from ptinstancemanager import tasks
 from ptinstancemanager.app import app
@@ -185,13 +185,13 @@ def allocate_instance_v1():
                 $ref: '#/definitions/Error'
     """
     try:
-        result = tasks.allocate_instance.delay()
-        allocation_id = result.get(app.config['CELERY_TIMEOUT'])
+        result = tasks.allocate_instance.apply_async(expires=app.config['CELERY_TIMEOUT'])
+        allocation_id = result.get()
         if allocation_id:
             allocation = Allocation.get(allocation_id)
             return jsonify(allocation.serialize("%s/%d" % (request.base_url, allocation.id), get_host()))
         return unavailable()
-    except TimeoutError:
+    except TaskRevokedError:
         return unavailable('timeout got during instance allocation')
     except Exception as e:
         return internal_error(e.args[0])
