@@ -12,6 +12,7 @@ import urllib2
 import logging
 from urlparse import urlparse
 from flask import redirect, request, render_template, url_for, jsonify
+from celery.exceptions import TimeoutError
 from werkzeug.exceptions import BadRequest
 from ptinstancemanager import tasks
 from ptinstancemanager.app import app
