@@ -224,8 +224,8 @@ def remove_container(docker_id):
         state = docker.inspect_container(docker_id)['State']
         if state['Paused']:
             docker.unpause(docker_id)
-        if state['Running']:
-            docker.remove_container(docker_id, force=True)
+        # It might be 'Running' or all to false (exited)
+        docker.remove_container(docker_id, force=True)
     except APIError as ae:
         logger.error('Error on container removal: %s.' % docker_id)
         logger.error('Docker API exception. %s.' % ae)
