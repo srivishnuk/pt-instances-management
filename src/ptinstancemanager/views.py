@@ -320,7 +320,7 @@ def list_instances_v1():
         elif show_param == "allocated":
             return get_json_instances(Instance.get_allocated())
         elif show_param == "error":
-            return get_json_instances(Instance.get_error())
+            return get_json_instances(Instance.get_erroneous())
         else:  # show_param is "finished":
             return get_json_instances(Instance.get_finished())
 
