@@ -185,7 +185,7 @@ def allocate_instance_v1():
                 $ref: '#/definitions/Error'
     """
     try:
-        result = tasks.allocate_instance.apply_async(expires=app.config['CELERY_TIMEOUT'])
+        result = tasks.allocate_instance.apply_async(expires=app.config['CELERY_TIMEOUT'], queue='priority_high')
         allocation_id = result.get()
         if allocation_id:
             allocation = Allocation.get(allocation_id)
@@ -255,7 +255,8 @@ def deallocate_instance_v1(allocation_id):
 
     try:
         allocation_id = instance.allocated_by
-        result = tasks.deallocate_instance.delay(instance.id)
+        result = tasks.deallocate_instance.apply_async(args=(instance.id,), queue='priority_high')
+        # The following timeout does not cancel task but ensures a prompt response.
         result.get(app.config['CELERY_TIMEOUT'])
         allocation = Allocation.get(allocation_id)
         if allocation:

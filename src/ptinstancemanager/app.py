@@ -6,6 +6,7 @@ Created on 13/07/2015
 
 import logging
 from flask import Flask
+from kombu import Queue
 from celery import Celery
 from flask.ext.sqlalchemy import SQLAlchemy
 from flasgger import Swagger
@@ -48,6 +49,8 @@ app.config['CELERY_BROKER_URL'] = configuration.get_celery_broker_url()
 app.config['CELERY_RESULT_BACKEND'] = configuration.get_celery_broker_url()
 app.config['CELERY_TIMEOUT'] = configuration.get_celery_timeout()
 app.config['CELERY_IMPORTS'] = ('ptinstancemanager.tasks',)
+app.config['CELERY_DEFAULT_QUEUE'] = 'default'
+app.config['CELERY_QUEUES'] = ( Queue('default'), Queue('priority_high'), )
 app.config['PT_CHECKER'] = configuration.get_jar_path()
 app.config['SWAGGER'] = {
     "swagger_version": "2.0",
