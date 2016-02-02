@@ -185,11 +185,13 @@ def allocate_instance_v1():
     """
     try:
         result = tasks.allocate_instance.delay()
-        allocation_id = result.get()
+        allocation_id = result.get(app.config['CELERY_TIMEOUT'])
         if allocation_id:
             allocation = Allocation.get(allocation_id)
             return jsonify(allocation.serialize("%s/%d" % (request.base_url, allocation.id), get_host()))
         return unavailable()
+    except TimeoutError:
+        return unavailable('timeout got during instance allocation')
     except Exception as e:
         return internal_error(e.args[0])
 
@@ -253,13 +255,15 @@ def deallocate_instance_v1(allocation_id):
     try:
         allocation_id = instance.allocated_by
         result = tasks.deallocate_instance.delay(instance.id)
-        result.get()
+        result.get(app.config['CELERY_TIMEOUT'])
         allocation = Allocation.get(allocation_id)
         if allocation:
             # TODO update instance object as status has changed
             return jsonify(allocation.serialize(request.base_url, get_host()))
         # else
         return not_found(error="The allocation does not exist.")
+    except TimeoutError:
+        return unavailable('timeout got during instance deallocation')
     except Exception as e:
         return internal_error(e.args[0])
 
@@ -378,11 +382,13 @@ def assign_instance_v1():
     """
     try:
         result = tasks.create_instance.delay()
-        instance_id = result.get()
+        instance_id = result.get(app.config['CELERY_TIMEOUT'])
         if instance_id:
             instance = Instance.get(instance_id)
             return jsonify(instance.serialize("%s/%d" % (request.base_url, instance.id), get_host()))
         return unavailable()
+    except TimeoutError:
+        return unavailable('timeout in instance creation')
     except Exception as e:
         return internal_error(e.args[0])
 
@@ -445,10 +451,12 @@ def delete_instance_v1(instance_id):
 
     try:
         result = tasks.remove_container.delay(instance.docker_id)
-        result.get()
+        result.get(app.config['CELERY_TIMEOUT'])
         instance.delete()
         # TODO update instance object as status has changed
         return jsonify(instance.serialize(request.base_url, get_host()))
+    except TimeoutError:
+        return unavailable('timeout in instance removal')
     except Exception as e:
         return internal_error(e.args[0])
 

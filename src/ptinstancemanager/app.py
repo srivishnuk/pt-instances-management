@@ -46,6 +46,7 @@ app.config['CACHE_DIR'] =  configuration.get_cache_directory()
 app.config['CACHE_CONTAINER_DIR'] =  configuration.get_container_directory()
 app.config['CELERY_BROKER_URL'] = configuration.get_celery_broker_url()
 app.config['CELERY_RESULT_BACKEND'] = configuration.get_celery_broker_url()
+app.config['CELERY_TIMEOUT'] = configuration.get_celery_timeout()
 app.config['CELERY_IMPORTS'] = ('ptinstancemanager.tasks',)
 app.config['PT_CHECKER'] = configuration.get_jar_path()
 app.config['SWAGGER'] = {
