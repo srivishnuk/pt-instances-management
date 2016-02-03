@@ -72,11 +72,13 @@ def create_instance():
         pt_port.release()
         raise e
 
+def get_docker_client():
+    return Client(app.config['DOCKER_URL'], version='auto')
 
 #@celery.task()
 def start_container(pt_port, vnc_port):
     """Creates and starts new packettracer container with Docker."""
-    docker = Client(app.config['DOCKER_URL'], version='auto')
+    docker = get_docker_client()
     port_bindings = { app.config['DOCKER_PT_PORT']: pt_port,
                       app.config['DOCKER_VNC_PORT']: vnc_port }
     vol_bindings = { app.config['CACHE_DIR']:
@@ -104,7 +106,7 @@ def start_container(pt_port, vnc_port):
 def allocate_instance():
     """Unpauses available container and marks associated instance as allocated."""
     logger.info('Allocating instance.')
-    docker = Client(app.config['DOCKER_URL'], version='auto')
+    docker = get_docker_client()
 
     error_discovered = False
     allocation_id = None
@@ -138,7 +140,7 @@ def deallocate_instance(instance_id):
     logger.info('Deallocating instance %s.' % instance_id)
     instance = Instance.get(instance_id)
     try:
-        docker = Client(app.config['DOCKER_URL'], version='auto')
+        docker = get_docker_client()
         docker.pause(instance.docker_id)
         instance.deallocate()
     except APIError as ae:
@@ -148,6 +150,15 @@ def deallocate_instance(instance_id):
         instance.mark_error()
         monitor_containers.s().delay()
 
+
+def is_container_running(container_id):
+    try:
+        docker = get_docker_client()
+        return docker.inspect_container(container_id)['State']['Running']
+    except APIError as ae:
+        logger.error('Error checking container status: ' + container_id)
+        logger.error('Docker API exception. %s.' % ae)
+        return False
 
 # Worst case tested scenario has been 15 seconds,
 # so if in 38 seconds (4*2 + 3*10) it has not answered,
@@ -160,19 +171,25 @@ def wait_for_ready_container(instance_id, timeout=2):
         Otherwise, marks it as erroneous ."""
     logger.info('Waiting for container to be ready.')
     instance = Instance.get(instance_id)
-    is_running = ptchecker.is_running(app.config['PT_CHECKER'], 'localhost', instance.pt_port, float(timeout))
-    if is_running:
-        instance.mark_ready()
-        if not instance.is_allocated():
-            # TODO rename the following task as it sounds confusing.
-            # We call it here to pause the instance, not to "deallocate it".
-            deallocate_instance.s(instance_id).delay()
+    container_running = is_container_running(instance.docker_id)
+    if container_running:
+        is_running = ptchecker.is_running(app.config['PT_CHECKER'], 'localhost', instance.pt_port, float(timeout))
+        if is_running:
+            instance.mark_ready()
+            if not instance.is_allocated():
+                # TODO rename the following task as it sounds confusing.
+                # We call it here to pause the instance, not to "deallocate it".
+                deallocate_instance.s(instance_id).delay()
+        else:
+            try:
+                raise wait_for_ready_container.retry()
+            except MaxRetriesExceededError:
+                instance.mark_error()
+                monitor_containers.s().delay()
     else:
-        try:
-            raise wait_for_ready_container.retry()
-        except MaxRetriesExceededError:
-            instance.mark_error()
-            monitor_containers.s().delay()
+        # If the container is not even running, PT won't answer no matter
+        # how many times we try...
+        instance.mark_error()
     return instance_id
 
 
@@ -181,7 +198,7 @@ def wait_for_ready_container(instance_id, timeout=2):
 def monitor_containers():
     logger.info('Monitoring instances.')
     restarted_instances = []
-    docker = Client(app.config['DOCKER_URL'], version='auto')
+    docker = get_docker_client()
     try:
         # 'exited': 0 throws exception, 'exited': '0' does not work.
         # Because of this I have felt forced to use regular expressions :-(
@@ -219,7 +236,7 @@ def monitor_containers():
 @celery.task()
 def remove_container(docker_id):
     logger.info('Removing container %s.' % docker_id)
-    docker = Client(app.config['DOCKER_URL'], version='auto')
+    docker = get_docker_client()
     try:
         state = docker.inspect_container(docker_id)['State']
         if state['Paused']:
