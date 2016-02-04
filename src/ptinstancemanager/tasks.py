@@ -1,6 +1,8 @@
 import re
 import psutil
 import logging
+from functools import wraps
+
 from docker import Client
 from docker.errors import APIError
 from celery import chain
@@ -17,6 +19,7 @@ logger = logging.getLogger()
 
 def cancellable(check=('cpu', 'memory')):
     def cancellable_decorator(func):
+        @wraps(func)
         def has_enough_resources(*args, **kwargs):
             """Has the machine reached the CPU consumption threshold?"""
             if 'cpu' in check:
