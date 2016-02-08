@@ -222,13 +222,13 @@ def try_restart_on_exited_containers():
 
 
 @celery.task()
-def delete_erroneous():
+def delete_erroneous(not_delete=[]):
     deleted_instances = []
     for erroneous_instance in Instance.get_erroneous():
-        if erroneous_instance.id not in restarted_instances:
+        if erroneous_instance.id not in not_delete:
             logger.info('Deleting erroneous %s.' % erroneous_instance)
             erroneous_instance.delete()
-            restarted_instances.append(erroneous_instance.id)
+            deleted_instances.append(erroneous_instance.id)
             # Very conservative approach:
             #   we remove it even if it might still be usable.
             remove_container.s(erroneous_instance.docker_id).delay()
@@ -239,10 +239,7 @@ def delete_erroneous():
 # This is a sort of mix between a Garbage collector and a Supervisor daemon :-P
 def monitor_containers():
     logger.info('Monitoring instances.')
-    try_restart_on_exited_containers.s()
-    # It doesn't wait to see if restarts works,
-    # next call to monitor_containers will handle it.
-    delete_erroneous.s()
+    chain(try_restart_on_exited_containers.s(), delete_erroneous.s())()
 
 
 @celery.task()
