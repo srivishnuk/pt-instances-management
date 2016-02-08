@@ -116,17 +116,20 @@ class Instance(db.Model):
             self.allocated_by = Instance.NONE
             db.session.commit()
 
+    def __set_status(self, new_status):
+        # Write it only if needed
+        if self.status != new_status:
+            self.status = new_status
+            db.session.commit()
+
     def mark_starting(self):
-        self.status = Instance.STARTING
-        db.session.commit()
+        self.__set_status(Instance.STARTING)
 
     def mark_ready(self):
-        self.status = Instance.READY
-        db.session.commit()
+        self.__set_status(Instance.READY)
 
     def mark_error(self):
-        self.status = Instance.ERROR
-        db.session.commit()
+        self.__set_status(Instance.ERROR)
 
     def delete(self):
         self.deallocate()

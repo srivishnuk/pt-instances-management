@@ -202,20 +202,25 @@ def try_restart_on_exited_containers():
         # Ignore containers not created from image 'packettracer'
         if container.get('Image')=='packettracer':
             match = pattern.match(container.get('Status'))
-            if match and match.group(1)=='0':
+            if match:
                 # Restart stopped containers (which exited successfully)
                 container_id = container.get('Id')
                 instance = Instance.get_by_docker_id(container_id)
                 if instance:
-                    instance.mark_starting()
-                    try:
-                        logger.info('Restarting %s.' % instance)
-                        docker.start(container=container_id)
-                        wait_for_ready_container.s(instance.id).delay()
-                        restarted_instances.append(instance.id)
-                    except APIError as ae:
-                        logger.error('Error restarting container.')
-                        logger.error('Docker API exception. %s.' % ae)
+                    if match.group(1)=='0':
+                        instance.mark_starting()
+                        try:
+                            logger.info('Restarting %s.' % instance)
+                            docker.start(container=container_id)
+                            wait_for_ready_container.s(instance.id).delay()
+                            restarted_instances.append(instance.id)
+                        except APIError as ae:
+                            logger.error('Error restarting container.')
+                            logger.error('Docker API exception. %s.' % ae)
+                            instance.mark_error()
+                    else:
+                        # TODO Check more thoroughly if containers with other
+                        # type of exit errors could be restarted too.
                         instance.mark_error()
     return restarted_instances
 
