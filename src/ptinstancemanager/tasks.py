@@ -78,6 +78,7 @@ def create_instance():
 def get_docker_client():
     return Client(app.config['DOCKER_URL'], version='auto')
 
+
 #@celery.task()
 def start_container(pt_port, vnc_port):
     """Creates and starts new packettracer container with Docker."""
@@ -220,9 +221,13 @@ def monitor_containers():
                         logger.info('Restarting %s.' % instance)
                         restarted_instances.append(instance.id)
                         instance.mark_starting()
-                        docker.start(container=container_id)
-                        wait_for_ready_container.s(instance.id).delay()
-
+                        try:
+                            docker.start(container=container_id)
+                            wait_for_ready_container.s(instance.id).delay()
+                        except APIError as ae:
+                            logger.error('Error restarting container.')
+                            logger.error('Docker API exception. %s.' % ae)
+                            instance.mark_error()
         for erroneous_instance in Instance.get_erroneous():
             if erroneous_instance.id not in restarted_instances:
                 logger.info('Deleting erroneous %s.' % erroneous_instance)
