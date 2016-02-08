@@ -124,16 +124,12 @@ def allocate_instance():
             logger.error('Docker API exception. %s.' % ae)
             # e.g., if it was already unpaused or it has been stopped
             instance.mark_error()
-            error_discovered = True
 
     if not allocation_id:
         # If there were no instances available, consider the creation of a new one
         instance_id = create_instance.s()()  # Execute task inline
         allocation_id = Instance.get(instance_id).allocate().id
         wait_for_ready_container.s(instance_id).delay()
-
-    if error_discovered:  # Launch it only once after doing the rest
-        monitor_containers.s().delay()
 
     return allocation_id
 
@@ -152,7 +148,6 @@ def deallocate_instance(instance_id):
         logger.error('Docker API exception. %s.' % ae)
         # e.g., if it was already paused
         instance.mark_error()
-        monitor_containers.s().delay()
 
 
 def is_container_running(container_id):
@@ -190,57 +185,64 @@ def wait_for_ready_container(instance_id, timeout=2):
                 raise wait_for_ready_container.retry()
             except MaxRetriesExceededError:
                 instance.mark_error()
-                monitor_containers.s().delay()
     else:
         # If the container is not even running, PT won't answer no matter
         # how many times we try...
         instance.mark_error()
-        monitor_containers.s().delay()
     return instance_id
+
+
+@celery.task()
+def try_restart_on_exited_containers:
+    docker = get_docker_client()
+    restarted_instances = []
+    # 'exited': 0 throws exception, 'exited': '0' does not work.
+    # Because of this I have felt forced to use regular expressions :-(
+    pattern = re.compile(r"Exited [(](\d+)[)]")
+    for container in docker.containers(filters={'status': 'exited'}):
+        # Ignore containers not created from image 'packettracer'
+        if container.get('Image')=='packettracer':
+            match = pattern.match(container.get('Status'))
+            if match and match.group(1)=='0':
+                # Restart stopped containers (which exited successfully)
+                container_id = container.get('Id')
+                instance = Instance.get_by_docker_id(container_id)
+                if instance:
+                    instance.mark_starting()
+                    try:
+                        logger.info('Restarting %s.' % instance)
+                        docker.start(container=container_id)
+                        wait_for_ready_container.s(instance.id).delay()
+                        restarted_instances.append(instance.id)
+                    except APIError as ae:
+                        logger.error('Error restarting container.')
+                        logger.error('Docker API exception. %s.' % ae)
+                        instance.mark_error()
+    return restarted_instances
+
+
+@celery.task()
+def delete_erroneous():
+    deleted_instances = []
+    for erroneous_instance in Instance.get_erroneous():
+        if erroneous_instance.id not in restarted_instances:
+            logger.info('Deleting erroneous %s.' % erroneous_instance)
+            erroneous_instance.delete()
+            restarted_instances.append(erroneous_instance.id)
+            # Very conservative approach:
+            #   we remove it even if it might still be usable.
+            remove_container.s(erroneous_instance.docker_id).delay()
+    return deleted_instances
 
 
 @celery.task()
 # This is a sort of mix between a Garbage collector and a Supervisor daemon :-P
 def monitor_containers():
     logger.info('Monitoring instances.')
-    restarted_instances = []
-    docker = get_docker_client()
-    try:
-        # 'exited': 0 throws exception, 'exited': '0' does not work.
-        # Because of this I have felt forced to use regular expressions :-(
-        pattern = re.compile(r"Exited [(](\d+)[)]")
-        for container in docker.containers(filters={'status': 'exited'}):
-            # Ignore containers not created from image 'packettracer'
-            if container.get('Image')=='packettracer':
-                match = pattern.match(container.get('Status'))
-                if match and match.group(1)=='0':
-                    # Restart stopped containers (which exited successfully)
-                    container_id = container.get('Id')
-                    instance = Instance.get_by_docker_id(container_id)
-                    if instance:
-                        logger.info('Restarting %s.' % instance)
-                        restarted_instances.append(instance.id)
-                        instance.mark_starting()
-                        try:
-                            docker.start(container=container_id)
-                            wait_for_ready_container.s(instance.id).delay()
-                        except APIError as ae:
-                            logger.error('Error restarting container.')
-                            logger.error('Docker API exception. %s.' % ae)
-                            instance.mark_error()
-        for erroneous_instance in Instance.get_erroneous():
-            if erroneous_instance.id not in restarted_instances:
-                logger.info('Deleting erroneous %s.' % erroneous_instance)
-                erroneous_instance.delete()
-                # Very conservative approach:
-                #   we remove it even if it might still be usable.
-                remove_container.s(erroneous_instance.docker_id).delay()
-                # TODO replace erroneous instance with a new one?
-    except APIError as ae:
-        logger.error('Error on container monitoring.')
-        logger.error('Docker API exception. %s.' % ae)
-    finally:
-        return restarted_instances
+    try_restart_on_exited_containers.s()
+    # It doesn't wait to see if restarts works,
+    # next call to monitor_containers will handle it.
+    delete_erroneous.s()
 
 
 @celery.task()

@@ -8,6 +8,7 @@ import logging
 from flask import Flask
 from kombu import Queue
 from celery import Celery
+from datetime import timedelta
 from flask.ext.sqlalchemy import SQLAlchemy
 from flasgger import Swagger
 from ptinstancemanager.config import configuration
@@ -56,6 +57,12 @@ app.config['CELERY_ROUTES'] = {
     },
     'ptinstancemanager.tasks.deallocate_instance': {
         'queue': 'priority_high',
+    },
+}
+app.config['CELERYBEAT_SCHEDULE'] = {
+    'monitor-every-5-minutes': {
+        'task': 'ptinstancemanager.tasks.monitor_containers',
+        'schedule': timedelta(minutes=5)
     },
 }
 app.config['PT_CHECKER'] = configuration.get_jar_path()
