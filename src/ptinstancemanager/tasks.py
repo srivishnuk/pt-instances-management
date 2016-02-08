@@ -193,7 +193,7 @@ def wait_for_ready_container(instance_id, timeout=2):
 
 
 @celery.task()
-def try_restart_on_exited_containers:
+def try_restart_on_exited_containers():
     docker = get_docker_client()
     restarted_instances = []
     # 'exited': 0 throws exception, 'exited': '0' does not work.
