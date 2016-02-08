@@ -62,18 +62,18 @@ def create_instance():
     vnc_port_number = pt_port.number + 10000
     try:
         container_id = start_container(pt_port.number, vnc_port_number)
+        logger.info('Container started: %s' % container_id)
 
         # If success...
         instance = Instance.create(container_id, pt_port.number, vnc_port_number)
         pt_port.assign(instance.id)
-
-        logger.info('Container started: %s' % container_id)
 
         wait_for_ready_container.s(instance.id).delay()
         return instance.id
     except Exception as e:
         pt_port.release()
         raise e
+
 
 def get_docker_client():
     return Client(app.config['DOCKER_URL'], version='auto')
@@ -129,7 +129,6 @@ def allocate_instance():
         # If there were no instances available, consider the creation of a new one
         instance_id = create_instance.s()()  # Execute task inline
         allocation_id = Instance.get(instance_id).allocate().id
-        wait_for_ready_container.s(instance_id).delay()
 
     return allocation_id
 
