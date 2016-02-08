@@ -163,6 +163,7 @@ def is_container_running(container_id):
         logger.error('Docker API exception. %s.' % ae)
         return False
 
+
 # Worst case tested scenario has been 15 seconds,
 # so if in 38 seconds (4*2 + 3*10) it has not answered,
 # we can consider the container erroneous.
@@ -193,6 +194,7 @@ def wait_for_ready_container(instance_id, timeout=2):
         # If the container is not even running, PT won't answer no matter
         # how many times we try...
         instance.mark_error()
+        monitor_containers.s().delay()
     return instance_id
 
 
