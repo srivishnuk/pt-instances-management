@@ -54,28 +54,6 @@ def allocate_port():
     return available_port
 
 
-@celery.task()
-def create_instance():
-    """Runs a new packettracer container in the specified port and
-        create associated instance."""
-    logger.info('Creating new container.')
-    pt_port = allocate_port()
-    vnc_port_number = pt_port.number + 10000
-    try:
-        container_id = start_container(pt_port.number, vnc_port_number)
-        logger.info('Container started: %s' % container_id)
-
-        # If success...
-        instance = Instance.create(container_id, pt_port.number, vnc_port_number)
-        pt_port.assign(instance.id)
-
-        wait_for_ready_container.s(instance.id).delay()
-        return instance.id
-    except DockerContainerError as e:
-        pt_port.release()
-        raise e
-
-
 def get_docker_client():
     return Client(app.config['DOCKER_URL'], version='auto')
 
@@ -104,6 +82,28 @@ def start_container(pt_port, vnc_port):
     response = docker.start(container=container.get('Id'))  # TODO log response?
 
     return container.get('Id')
+
+
+@celery.task()
+def create_instance():
+    """Runs a new packettracer container in the specified port and
+        create associated instance."""
+    logger.info('Creating new container.')
+    pt_port = allocate_port()
+    vnc_port_number = pt_port.number + 10000
+    try:
+        container_id = start_container(pt_port.number, vnc_port_number)
+        logger.info('Container started: %s' % container_id)
+
+        # If success...
+        instance = Instance.create(container_id, pt_port.number, vnc_port_number)
+        pt_port.assign(instance.id)
+
+        wait_for_ready_container.s(instance.id).delay()
+        return instance.id
+    except DockerContainerError as e:
+        pt_port.release()
+        raise e
 
 
 @celery.task()
