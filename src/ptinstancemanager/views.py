@@ -17,6 +17,7 @@ from werkzeug.exceptions import BadRequest
 from ptinstancemanager import tasks
 from ptinstancemanager.app import app
 from ptinstancemanager.models import Allocation, Instance, Port, CachedFile
+from ptinstancemanager.exceptions import InsufficientResourcesError, DockerContainerError
 
 
 @app.route("/")
@@ -193,7 +194,9 @@ def allocate_instance_v1():
         return unavailable()
     except TaskRevokedError:
         return unavailable('timeout got during instance allocation')
-    except Exception as e:
+    except InsufficientResourcesError as ire:
+        return unavailable(ire.args[0])
+    except DockerContainerError as e:
         return internal_error(e.args[0])
 
 
@@ -369,14 +372,7 @@ def assign_instance_v1():
         500:
             description: The container could not be created, there was an error.
             schema:
-                id: Error
-                properties:
-                    status:
-                        type: integer
-                        description: HTTP status code.
-                    message:
-                        type: string
-                        description: Description for the error.
+                $ref: '#/definitions/Error'
         503:
             description: At the moment the server cannot create more instances.
             schema:
@@ -391,7 +387,7 @@ def assign_instance_v1():
         return unavailable()
     except TimeoutError:
         return unavailable('timeout in instance creation')
-    except Exception as e:
+    except DockerContainerError as e:
         return internal_error(e.args[0])
 
 
@@ -446,6 +442,10 @@ def delete_instance_v1(instance_id):
           description: There is not an instance for the given instance_id.
           schema:
               $ref: '#/definitions/Error'
+      503:
+          description: The instance has not been deleted in the given time.
+          schema:
+              $ref: '#/definitions/Error'
     """
     instance = Instance.get(instance_id)
     if not instance or not instance.is_active():
@@ -459,8 +459,6 @@ def delete_instance_v1(instance_id):
         return jsonify(instance.serialize(request.base_url, get_host()))
     except TimeoutError:
         return unavailable('timeout in instance removal')
-    except Exception as e:
-        return internal_error(e.args[0])
 
 
 @app.route("/ports", endpoint="v1_ports")

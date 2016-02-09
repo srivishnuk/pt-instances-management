@@ -11,6 +11,7 @@ from celery.exceptions import MaxRetriesExceededError
 import ptchecker
 from ptinstancemanager.app import app, celery
 from ptinstancemanager.models import Instance, Port, CachedFile
+from ptinstancemanager.exceptions import InsufficientResourcesError, DockerContainerError
 
 
 # To make sure that Celery tasks use this logger too...
@@ -26,13 +27,13 @@ def cancellable(check=('cpu', 'memory')):
                 max_cpu = app.config['MAXIMUM_CPU']
                 current = psutil.cpu_percent(interval=1)  #  It blocks it for a second
                 if current >= max_cpu:
-                    raise Exception('Operation cancelled: not enough CPU. Currently using: %.2f%%.' % current)
+                    raise InsufficientResourcesError('Operation cancelled: not enough CPU. Currently using: %.2f%%.' % current)
 
             if 'memory' in check:
                 max_memory = app.config['MAXIMUM_MEMORY']
                 current = psutil.virtual_memory().percent
                 if current >= max_memory:
-                    raise Exception('Operation cancelled: not enough Memory. Currently using: %.2f%%.' % current)
+                    raise InsufficientResourcesError('Operation cancelled: not enough Memory. Currently using: %.2f%%.' % current)
 
             logger.info('All the thresholds were passed.')
             return func(*args, **kwargs)
@@ -49,7 +50,7 @@ def create_instances(num_containers):
 def allocate_port():
     available_port = Port.allocate()
     if available_port is None:
-        raise Exception('The server cannot create new instances. Please, wait and retry it.')
+        raise InsufficientResourcesError('The server cannot create new instances. Please, wait and retry it.')
     return available_port
 
 
@@ -70,7 +71,7 @@ def create_instance():
 
         wait_for_ready_container.s(instance.id).delay()
         return instance.id
-    except Exception as e:
+    except DockerContainerError as e:
         pt_port.release()
         raise e
 
@@ -97,7 +98,7 @@ def start_container(pt_port, vnc_port):
                                         host_config=host_config)
 
     if container.get('Warnings'):
-        raise Exception('Error during container creation: %s' % container.get('Warnings'))
+        raise DockerContainerError('Error during container creation: %s' % container.get('Warnings'))
 
     # If success...
     response = docker.start(container=container.get('Id'))  # TODO log response?
@@ -202,12 +203,12 @@ def try_restart_on_exited_containers():
         # Ignore containers not created from image 'packettracer'
         if container.get('Image')=='packettracer':
             match = pattern.match(container.get('Status'))
-            if match:
-                # Restart stopped containers (which exited successfully)
+            if match:  # Stopped containers only
                 container_id = container.get('Id')
                 instance = Instance.get_by_docker_id(container_id)
                 if instance:
                     if match.group(1)=='0':
+                        # Restart stopped containers (which exited successfully)
                         instance.mark_starting()
                         try:
                             logger.info('Restarting %s.' % instance)
