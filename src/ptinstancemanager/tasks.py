@@ -23,17 +23,19 @@ def cancellable(check=('cpu', 'memory')):
         @wraps(func)
         def has_enough_resources(*args, **kwargs):
             """Has the machine reached the CPU consumption threshold?"""
-            if 'cpu' in check:
-                max_cpu = app.config['MAXIMUM_CPU']
-                current = psutil.cpu_percent(interval=1)  #  It blocks it for a second
-                if current >= max_cpu:
-                    raise InsufficientResourcesError('Operation cancelled: not enough CPU. Currently using: %.2f%%.' % current)
-
             if 'memory' in check:
                 max_memory = app.config['MAXIMUM_MEMORY']
                 current = psutil.virtual_memory().percent
                 if current >= max_memory:
                     raise InsufficientResourcesError('Operation cancelled: not enough Memory. Currently using: %.2f%%.' % current)
+
+            if 'cpu' in check:
+                max_cpu = app.config['MAXIMUM_CPU']
+                # It is recommended for accuracy that this function be called
+                # with at least 0.1 seconds between calls.
+                current = psutil.cpu_percent(interval=0.1)  #  Blocked during 0.1 secs
+                if current >= max_cpu:
+                    raise InsufficientResourcesError('Operation cancelled: not enough CPU. Currently using: %.2f%%.' % current)
 
             logger.info('All the thresholds were passed.')
             return func(*args, **kwargs)
@@ -107,7 +109,8 @@ def create_instance():
 
 
 @celery.task()
-@cancellable(check=('cpu',))  # Check only the CPU threshold
+@cancellable()
+#@cancellable(check=('cpu',))  # Check only the CPU threshold
 def allocate_instance():
     """Unpauses available container and marks associated instance as allocated."""
     logger.info('Allocating instance.')
