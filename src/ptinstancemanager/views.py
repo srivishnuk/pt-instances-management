@@ -186,7 +186,7 @@ def allocate_instance_v1():
                 $ref: '#/definitions/Error'
     """
     try:
-        result = tasks.allocate_instance.apply_async(expires=app.config['CELERY_TIMEOUT'])
+        result = tasks.allocate_instance.apply_async()
         allocation_id = result.get()
         if allocation_id:
             allocation = Allocation.get(allocation_id)
