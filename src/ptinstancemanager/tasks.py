@@ -108,7 +108,7 @@ def create_instance():
         raise e
 
 
-@celery.task()
+@celery.task(expires=app.config['CELERY_TASK_EXPIRATION'])
 @cancellable()
 #@cancellable(check=('cpu',))  # Check only the CPU threshold
 def allocate_instance():

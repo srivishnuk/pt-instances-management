@@ -42,8 +42,8 @@ class ConfigFileReader(object):
     def get_celery_broker_url(self):
         return self.config.get('Celery', 'broker_url')
 
-    def get_celery_timeout(self):
-        return int(self.config.get('Celery', 'timeout'))
+    def get_task_expiration(self):
+        return int(self.config.get('Celery', 'task_expiration'))
 
     def get_jar_path(self):
         return self.config.get('PTChecker', 'jar_path')
