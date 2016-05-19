@@ -73,8 +73,7 @@ app.config['SWAGGER'] = {
             "version": "0.0.1",
             "title": "API v1",
             "endpoint": 'v1_spec',
-            "route": '/spec',
-            "rule_filter": lambda rule: rule.endpoint.startswith('v1'),
+            "route": '/v1/spec'
     }],
 }
 swagger = Swagger(app)

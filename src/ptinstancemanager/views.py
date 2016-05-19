@@ -60,7 +60,7 @@ def add_header(response):
     return response
 
 
-@app.route("/details", endpoint="v1_details")
+@app.route("/details")
 def get_configuration_details():
     """
     Get API capabilities.
@@ -102,8 +102,8 @@ def get_json_allocations(allocations):
     return jsonify(allocations=[al.serialize("%s/%d" % (request.base_url, al.id), h) for al in allocations])
 
 
-@app.route("/allocations", endpoint="v1_allocations")
-def list_allocations_v1():
+@app.route("/allocations")
+def list_allocations():
     """
     Lists allocations.
     ---
@@ -124,7 +124,7 @@ def list_allocations_v1():
                 allocations:
                     type: array
                     items:
-                      $ref: '#/definitions/Allocation'
+                      $ref: '#/definitions/allocate_instance_post_Allocation'
     """
     show_param = request.args.get("show")
     if show_param is None or show_param == "current":  # default option
@@ -139,8 +139,8 @@ def list_allocations_v1():
             return get_json_allocations(Allocation.get_finished())
 
 
-@app.route("/allocations", methods=['POST'], endpoint="v1_allocation_create")
-def allocate_instance_v1():
+@app.route("/allocations", methods=['POST'])
+def allocate_instance():
     """
     Allocates a Packet Tracer instance.
     ---
@@ -183,7 +183,7 @@ def allocate_instance_v1():
         503:
             description: At the moment the server cannot allocate more instances.
             schema:
-                $ref: '#/definitions/Error'
+                $ref: '#/definitions/allocate_instance_post_Error'
     """
     try:
         result = tasks.allocate_instance.apply_async()
@@ -200,8 +200,8 @@ def allocate_instance_v1():
         return internal_error(e.args[0])
 
 
-@app.route("/allocations/<allocation_id>", endpoint="v1_allocation")
-def show_allocation_details_v1(allocation_id):
+@app.route("/allocations/<allocation_id>")
+def show_allocation_details(allocation_id):
     """
     Shows the details of a Packet Tracer instance allocation.
     ---
@@ -217,11 +217,11 @@ def show_allocation_details_v1(allocation_id):
       200:
         description: Details of the instance allocation.
         schema:
-            $ref: '#/definitions/Allocation'
+            $ref: '#/definitions/allocate_instance_post_Allocation'
       404:
         description: There is not an allocation for the given allocation_id.
         schema:
-            $ref: '#/definitions/Error'
+            $ref: '#/definitions/allocate_instance_post_Error'
     """
     allocation = Allocation.get(allocation_id)
     if allocation:
@@ -229,8 +229,8 @@ def show_allocation_details_v1(allocation_id):
     return not_found(error="The allocation does not exist.")
 
 
-@app.route("/allocations/<allocation_id>", methods=['DELETE'], endpoint="v1_allocation_delete")
-def deallocate_instance_v1(allocation_id):
+@app.route("/allocations/<allocation_id>", methods=['DELETE'])
+def deallocate_instance(allocation_id):
     """
     Stops a running Packet Tracer instance.
     ---
@@ -246,11 +246,11 @@ def deallocate_instance_v1(allocation_id):
       200:
           description: Allocation removed
           schema:
-              $ref: '#/definitions/Allocation'
+              $ref: '#/definitions/allocate_instance_post_Allocation'
       404:
           description: There is not an allocation for the given allocation_id.
           schema:
-              $ref: '#/definitions/Error'
+              $ref: '#/definitions/allocate_instance_post_Error'
     """
     instance = Instance.get_by_allocation_id(allocation_id)
     if not instance:
@@ -276,8 +276,8 @@ def get_json_instances(instances):
     return jsonify(instances=[ins.serialize("%s/%d" % (request.base_url, ins.id), h) for ins in instances])
 
 
-@app.route("/instances", endpoint="v1_instances")
-def list_instances_v1():
+@app.route("/instances")
+def list_instances():
     """
     Lists instances.
     ---
@@ -298,7 +298,7 @@ def list_instances_v1():
                 instances:
                     type: array
                     items:
-                      $ref: '#/definitions/Instance'
+                      $ref: '#/definitions/assign_instance_post_Instance'
     """
     show_param = request.args.get("show")
     if show_param is None or show_param == "running":  # default option
@@ -326,8 +326,8 @@ def list_instances_v1():
             return get_json_instances(Instance.get_finished())
 
 
-@app.route("/instances", methods=['POST'], endpoint="v1_instance_create")
-def assign_instance_v1():
+@app.route("/instances", methods=['POST'])
+def assign_instance():
     """
     Creates a new Packet Tracer instance.
     ---
@@ -369,11 +369,11 @@ def assign_instance_v1():
         500:
             description: The container could not be created, there was an error.
             schema:
-                $ref: '#/definitions/Error'
+                $ref: '#/definitions/allocate_instance_post_Error'
         503:
             description: At the moment the server cannot create more instances.
             schema:
-                $ref: '#/definitions/Error'
+                $ref: '#/definitions/allocate_instance_post_Error'
     """
     try:
         result = tasks.create_instance.delay()
@@ -386,8 +386,8 @@ def assign_instance_v1():
         return internal_error(e.args[0])
 
 
-@app.route("/instances/<instance_id>", endpoint="v1_instance")
-def show_instance_details_v1(instance_id):
+@app.route("/instances/<instance_id>")
+def show_instance_details(instance_id):
     """
     Shows the details of a Packet Tracer instance.
     ---
@@ -403,11 +403,11 @@ def show_instance_details_v1(instance_id):
       200:
         description: Details of the instance
         schema:
-            $ref: '#/definitions/Instance'
+            $ref: '#/definitions/assign_instance_post_Instance'
       404:
         description: There is not an instance for the given instance_id.
         schema:
-            $ref: '#/definitions/Error'
+            $ref: '#/definitions/allocate_instance_post_Error'
     """
     instance = Instance.get(instance_id)
     if instance is None:
@@ -415,8 +415,8 @@ def show_instance_details_v1(instance_id):
     return jsonify(instance.serialize(request.base_url, get_host()))
 
 
-@app.route("/instances/<instance_id>", methods=['DELETE'], endpoint="v1_instance_delete")
-def delete_instance_v1(instance_id):
+@app.route("/instances/<instance_id>", methods=['DELETE'])
+def delete_instance(instance_id):
     """
     Stops a running Packet Tracer instance.
     ---
@@ -432,15 +432,15 @@ def delete_instance_v1(instance_id):
       200:
           description: Instance stopped
           schema:
-              $ref: '#/definitions/Instance'
+              $ref: '#/definitions/assign_instance_post_Instance'
       404:
           description: There is not an instance for the given instance_id.
           schema:
-              $ref: '#/definitions/Error'
+              $ref: '#/definitions/allocate_instance_post_Error'
       503:
           description: The instance has not been deleted in the given time.
           schema:
-              $ref: '#/definitions/Error'
+              $ref: '#/definitions/allocate_instance_post_Error'
     """
     instance = Instance.get(instance_id)
     if not instance or not instance.is_active():
@@ -453,8 +453,8 @@ def delete_instance_v1(instance_id):
     return jsonify(instance.serialize(request.base_url, get_host()))
 
 
-@app.route("/ports", endpoint="v1_ports")
-def list_ports_v1():
+@app.route("/ports")
+def list_ports():
     """
     Lists the ports used by the Packet Tracer instances.
     ---
@@ -497,7 +497,7 @@ def list_ports_v1():
             return jsonify(ports=[port.serialize for port in Port.get_unavailable()])
 
 
-@app.route("/files", endpoint="v1_files")
+@app.route("/files")
 def list_cached_files():
     """
     Returns the files cached and the original URLs that they cache.
@@ -512,7 +512,7 @@ def list_cached_files():
                 files:
                     type: array
                     items:
-                      $ref: '#/definitions/File'
+                      $ref: '#/definitions/get_cached_file_get_File'
     """
     # list available files
     c_dir = app.config['CACHE_CONTAINER_DIR']
@@ -530,7 +530,7 @@ def delete_file(cached_file):
         else: raise  # E.g., permission denied
 
 
-@app.route("/files", methods=['DELETE'], endpoint="v1_files_delete")
+@app.route("/files", methods=['DELETE'])
 def clear_cache():
     """
     Clears the cache of files.
@@ -545,11 +545,11 @@ def clear_cache():
                 files:
                     type: array
                     items:
-                      $ref: '#/definitions/File'
+                      $ref: '#/definitions/get_cached_file_get_File'
       500:
         description: The file could not be deleted from the cache.
         schema:
-            $ref: '#/definitions/Error'
+            $ref: '#/definitions/allocate_instance_post_Error'
     """
     deleted_files = []
     c_dir = app.config['CACHE_CONTAINER_DIR']
@@ -575,7 +575,7 @@ def get_and_update_cached_file(file_url):
     return None
 
 
-@app.route("/files/<file_url>", endpoint="v1_file")
+@app.route("/files/<file_url>")
 def get_cached_file(file_url):
     """
     Returns the details the cached file if it exists.
@@ -603,7 +603,7 @@ def get_cached_file(file_url):
       404:
         description: There is no file cached for the given URL.
         schema:
-          $ref: '#/definitions/Error'
+          $ref: '#/definitions/allocate_instance_post_Error'
     """
     file_url = urllib.unquote(file_url)
     cached_file = get_and_update_cached_file(file_url)
@@ -617,7 +617,7 @@ def get_random_name(length=32):
     return ''.join(random.SystemRandom().choice(string.ascii_lowercase + string.digits) for _ in range(length)) + '.pkt'
 
 
-@app.route("/files", methods=['POST'], endpoint="v1_file_cache")
+@app.route("/files", methods=['POST'])
 def cache_file():
     """
     Caches a Packet Tracer file.
@@ -634,15 +634,15 @@ def cache_file():
       201:
         description: Packet Tracer file cached.
         schema:
-            $ref: '#/definitions/File'
+            $ref: '#/definitions/get_cached_file_get_File'
       400:
         description: The URL could not be accessed. It might not exist.
         schema:
-            $ref: '#/definitions/Error'
+            $ref: '#/definitions/allocate_instance_post_Error'
       500:
         description: The body of the request was incorrect. Please provide a valid file URL.
         schema:
-            $ref: '#/definitions/Error'
+            $ref: '#/definitions/allocate_instance_post_Error'
     """
     file_url = request.data
     if not file_url:
@@ -665,7 +665,7 @@ def cache_file():
     return jsonify(new_cached.serialize(app.config['CACHE_CONTAINER_DIR']))
 
 
-@app.route("/files/<file_url>", methods=['DELETE'], endpoint="v1_file_delete")
+@app.route("/files/<file_url>", methods=['DELETE'])
 def delete_file_from_cache(file_url):
     """
     Clears file from the cache.
@@ -682,11 +682,11 @@ def delete_file_from_cache(file_url):
       201:
         description: Packet Tracer file deleted from the cache.
         schema:
-            $ref: '#/definitions/File'
+            $ref: '#/definitions/get_cached_file_get_File'
       404:
         description: There is no file cached for the given URL.
         schema:
-            $ref: '#/definitions/Error'
+            $ref: '#/definitions/allocate_instance_post_Error'
     """
     file_url = urllib.unquote(file_url)
     cached_file = get_and_update_cached_file(file_url)
