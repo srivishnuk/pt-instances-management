@@ -26,7 +26,7 @@ setup(name="ptinstancemanager",
       },
       packages=["ptinstancemanager"],
       install_requires=[
-            "docker-py",
+            "docker-py<1.8.0",
             "Flask-SQLAlchemy",
             "jsonschema<=2.4.0",
             "flasgger",
