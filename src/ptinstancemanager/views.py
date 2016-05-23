@@ -8,7 +8,7 @@ import os
 import errno
 import random
 import string
-import urllib, urllib2
+import urllib2
 import logging
 from urlparse import urlparse
 from flask import redirect, request, render_template, url_for, jsonify
@@ -29,7 +29,7 @@ def get_json_error(error_number, message):
     resp.status_code = error_number
     return resp
 
-@app.errorhandler(404)
+@app.errorhandler(400)
 def bad_request(error=None):
     return get_json_error(400, 'Bad Request: %s.\n%s' % (request.url, error))
 
@@ -575,7 +575,7 @@ def get_and_update_cached_file(file_url):
     return None
 
 
-@app.route("/files/<file_url>")
+@app.route("/files/<path:file_url>")
 def get_cached_file(file_url):
     """
     Returns the details the cached file if it exists.
@@ -605,9 +605,8 @@ def get_cached_file(file_url):
         schema:
           $ref: '#/definitions/allocate_instance_post_Error'
     """
-    file_url = urllib.unquote(file_url)
     cached_file = get_and_update_cached_file(file_url)
-    if cached_file is None:
+    if not cached_file:
         return not_found(error="The URL is not cached.")
     return jsonify(cached_file.serialize(app.config['CACHE_CONTAINER_DIR']))
 
@@ -665,7 +664,7 @@ def cache_file():
     return jsonify(new_cached.serialize(app.config['CACHE_CONTAINER_DIR']))
 
 
-@app.route("/files/<file_url>", methods=['DELETE'])
+@app.route("/files/<path:file_url>", methods=['DELETE'])
 def delete_file_from_cache(file_url):
     """
     Clears file from the cache.
@@ -688,7 +687,6 @@ def delete_file_from_cache(file_url):
         schema:
             $ref: '#/definitions/allocate_instance_post_Error'
     """
-    file_url = urllib.unquote(file_url)
     cached_file = get_and_update_cached_file(file_url)
     if not cached_file:
         return not_found(error="The URL is not cached.")
