@@ -8,7 +8,7 @@ import os
 import errno
 import random
 import string
-import urllib2
+import urllib, urllib2
 import logging
 from urlparse import urlparse
 from flask import redirect, request, render_template, url_for, jsonify
