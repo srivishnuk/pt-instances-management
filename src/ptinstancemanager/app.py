@@ -9,7 +9,7 @@ from flask import Flask
 from kombu import Queue
 from celery import Celery
 from datetime import timedelta
-from flask.ext.sqlalchemy import SQLAlchemy
+from flask_sqlalchemy import SQLAlchemy
 from flasgger import Swagger
 from ptinstancemanager.config import configuration
 
